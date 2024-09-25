@@ -14,8 +14,8 @@
 #define FONT_HEIGHT      64
 #define FONT_ROWS        7
 #define FONT_COLS        18
-#define FONT_CHAR_WIDTH  (FONT_WIDTH / FONT_COLS)
-#define FONT_CHAR_HEIGHT (FONT_HEIGHT / FONT_ROWS)
+#define FONT_CHAR_WIDTH  (int) (FONT_WIDTH / FONT_COLS)
+#define FONT_CHAR_HEIGHT (int) (FONT_HEIGHT / FONT_ROWS)
 #define FONT_SCALE       5.0
 
 #define UNHEX(color)                                                                 \
@@ -81,7 +81,7 @@ font_t font_from_file(SDL_Renderer *renderer, char const *filename)
 {
     font_t font = { 0 };
     SDL_Surface *font_surface = surface_from_file(filename);
-    scc(SDL_SetColorKey(font_surface, SDL_TRUE, 0xFF000000));
+    scc(SDL_SetColorKey(font_surface, SDL_TRUE, 0xFF00'0000));
     font.sprite = scp(SDL_CreateTextureFromSurface(renderer, font_surface));
     SDL_FreeSurface(font_surface);
 
@@ -143,6 +143,17 @@ char buffer[BUFFER_CAPACITY];
 size_t buffer_size = 0;
 size_t buffer_cursor = 0;
 
+void buffer_insert_text(char const *text, size_t text_size)
+{
+    if (text_size > BUFFER_CAPACITY - buffer_size) {
+        text_size = BUFFER_CAPACITY - buffer_size;
+    }
+    memmove(buffer + buffer_cursor + text_size, buffer + buffer_cursor,
+            buffer_size - buffer_cursor);
+    memcpy(buffer + buffer_cursor, text, text_size);
+    buffer_size += text_size;
+}
+
 void render_cursor(SDL_Renderer *renderer, font_t const *font, float scale)
 {
     v2f_t pos = v2f(buffer_cursor * scale * FONT_CHAR_WIDTH, 0.0);
@@ -203,12 +214,7 @@ int main(void)
                 } break;
 
                 case SDL_TEXTINPUT: {
-                    size_t text_size = strlen(event.text.text);
-                    if (text_size > BUFFER_CAPACITY - buffer_size) {
-                        text_size = BUFFER_CAPACITY - buffer_size;
-                    }
-                    memcpy(buffer + buffer_size, event.text.text, text_size);
-                    buffer_size += text_size;
+                    buffer_insert_text(event.text.text, strlen(event.text.text));
                 } break;
             }
         }
