@@ -14,8 +14,8 @@
 #define FONT_HEIGHT      64
 #define FONT_ROWS        7
 #define FONT_COLS        18
-#define FONT_CHAR_WIDTH  ((float) FONT_WIDTH / FONT_COLS)
-#define FONT_CHAR_HEIGHT ((float) FONT_HEIGHT / FONT_ROWS)
+#define FONT_CHAR_WIDTH  (FONT_WIDTH / FONT_COLS)
+#define FONT_CHAR_HEIGHT (FONT_HEIGHT / FONT_ROWS)
 #define FONT_SCALE       5.0
 
 #define UNHEX(color)                                                                 \
@@ -81,6 +81,7 @@ font_t font_from_file(SDL_Renderer *renderer, char const *filename)
 {
     font_t font = { 0 };
     SDL_Surface *font_surface = surface_from_file(filename);
+    scc(SDL_SetColorKey(font_surface, SDL_TRUE, 0xFF000000));
     font.sprite = scp(SDL_CreateTextureFromSurface(renderer, font_surface));
     SDL_FreeSurface(font_surface);
 
@@ -99,7 +100,15 @@ font_t font_from_file(SDL_Renderer *renderer, char const *filename)
     return font;
 }
 
-void render_char(SDL_Renderer *renderer, font_t *font, char c, v2f_t pos, float scale)
+void set_texture_color(SDL_Texture *texture, Uint32 color)
+{
+    scc(SDL_SetTextureColorMod(
+            texture, (color >> (8 * 0)) & 0xFF, (color >> (8 * 1)) & 0xFF,
+            (color >> (8 * 2)) & 0xFF));
+    scc(SDL_SetTextureAlphaMod(texture, (color >> (8 * 3)) & 0xFF));
+}
+
+void render_char(SDL_Renderer *renderer, font_t const *font, char c, v2f_t pos, float scale)
 {
     assert(c >= ASCII_DISPLAY_LOW && c <= ASCII_DISPLAY_HIGH);
 
@@ -116,11 +125,7 @@ void render_text(
         SDL_Renderer *renderer, font_t *font, char const *text, size_t text_size, v2f_t pos,
         Uint32 color, float scale)
 {
-    scc(SDL_SetTextureColorMod(
-            font->sprite, (color >> (8 * 0)) & 0xFF, (color >> (8 * 1)) & 0xFF,
-            (color >> (8 * 2)) & 0xFF));
-    scc(SDL_SetTextureAlphaMod(font->sprite, (color >> (8 * 3)) & 0xFF));
-
+    set_texture_color(font->sprite, color);
     for (size_t i = 0; i < text_size; i++) {
         if (text[i] < ASCII_DISPLAY_LOW || text[i] > ASCII_DISPLAY_HIGH) {
             continue;
@@ -130,18 +135,6 @@ void render_text(
     }
 }
 
-void render_cursor(SDL_Renderer *renderer, size_t buffer_cursor, Uint32 color, float scale)
-{
-    SDL_Rect rect = {
-        .x = buffer_cursor * scale * FONT_CHAR_WIDTH,
-        .y = 0,
-        .w = FONT_CHAR_WIDTH * scale,
-        .h = FONT_CHAR_HEIGHT * scale,
-    };
-    scc(SDL_SetRenderDrawColor(renderer, UNHEX(color)));
-    scc(SDL_RenderFillRect(renderer, &rect));
-}
-
 #define render_cstr(renderer, font, cstr, pos, color, scale) \
     render_text(renderer, font, cstr, strlen(cstr), pos, color, scale)
 
@@ -149,6 +142,24 @@ void render_cursor(SDL_Renderer *renderer, size_t buffer_cursor, Uint32 color, f
 char buffer[BUFFER_CAPACITY];
 size_t buffer_size = 0;
 size_t buffer_cursor = 0;
+
+void render_cursor(SDL_Renderer *renderer, font_t const *font, float scale)
+{
+    v2f_t pos = v2f(buffer_cursor * scale * FONT_CHAR_WIDTH, 0.0);
+    SDL_Rect rect = {
+        .x = pos.x,
+        .y = pos.y,
+        .w = FONT_CHAR_WIDTH * scale,
+        .h = FONT_CHAR_HEIGHT * scale,
+    };
+    scc(SDL_SetRenderDrawColor(renderer, UNHEX(0xFFFF'FFFF)));
+    scc(SDL_RenderFillRect(renderer, &rect));
+
+    set_texture_color(font->sprite, 0xFF00'0000);
+    if (buffer_cursor < buffer_size) {
+        render_char(renderer, font, buffer[buffer_cursor], pos, scale);
+    }
+}
 
 int main(void)
 {
@@ -175,7 +186,19 @@ int main(void)
                             if (buffer_size > 0) {
                                 buffer_size--;
                             }
-                        }
+                        } break;
+
+                        case SDLK_l: {
+                            if (buffer_cursor < buffer_size) {
+                                buffer_cursor++;
+                            }
+                        } break;
+
+                        case SDLK_h: {
+                            if (buffer_cursor > 0) {
+                                buffer_cursor--;
+                            }
+                        } break;
                     }
                 } break;
 
@@ -190,13 +213,15 @@ int main(void)
             }
         }
 
-        buffer_cursor = buffer_size;
+        if (buffer_cursor > buffer_size) {
+            buffer_cursor = buffer_size;
+        }
 
         scc(SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0));
         scc(SDL_RenderClear(renderer));
 
         render_text(renderer, &font, buffer, buffer_size, v2fs(0.0), 0xFFFF'FFFF, FONT_SCALE);
-        render_cursor(renderer, buffer_cursor, 0xFFFF'FFFF, FONT_SCALE);
+        render_cursor(renderer, &font, FONT_SCALE);
 
         SDL_RenderPresent(renderer);
     }
