@@ -10,6 +10,11 @@ v2f_t v2fs(float f)
     return v2f(f, f);
 }
 
+v2f_t v2f_neg(v2f_t v)
+{
+    return v2f(-v.x, -v.y);
+}
+
 v2f_t v2f_add(v2f_t a, v2f_t b)
 {
     return v2f(a.x + b.x, a.y + b.y);

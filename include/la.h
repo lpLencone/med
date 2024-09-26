@@ -5,8 +5,10 @@ typedef struct {
     float x, y;
 } v2f_t;
 
+#define v2(v) v.x, v.y
 v2f_t v2f(float x, float y);
 v2f_t v2fs(float f);
+v2f_t v2f_neg(v2f_t v);
 v2f_t v2f_add(v2f_t a, v2f_t b);
 v2f_t v2f_sub(v2f_t a, v2f_t b);
 v2f_t v2f_mul(v2f_t a, v2f_t b);

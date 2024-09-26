@@ -11,6 +11,9 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
+#define SCREEN_WIDTH  800
+#define SCREEN_HEIGHT 600
+
 #define FONT_FILENAME    "charmap-oldschool_white.png"
 #define FONT_WIDTH       128
 #define FONT_HEIGHT      64
@@ -112,42 +115,43 @@ void set_texture_color(SDL_Texture *texture, Uint32 color)
 }
 
 void render_char(
-        SDL_Renderer *renderer, font_t const *font, char c, v2f_t pos, float scale)
+        SDL_Renderer *renderer, font_t const *font, char c, v2f_t cam_pos, float scale)
 {
     assert(c >= ASCII_DISPLAY_LOW && c <= ASCII_DISPLAY_HIGH);
-    SDL_Rect const destine = { .x = (int) floorf(pos.x),
-                               .y = (int) floorf(pos.y),
-                               .w = (int) floorf(scale * FONT_CHAR_WIDTH),
-                               .h = (int) floorf(scale * FONT_CHAR_HEIGHT) };
+    SDL_Rect const dst = { .x = (int) floorf(cam_pos.x),
+                           .y = (int) floorf(cam_pos.y),
+                           .w = (int) floorf(scale * FONT_CHAR_WIDTH),
+                           .h = (int) floorf(scale * FONT_CHAR_HEIGHT) };
 
     size_t const index = c - ASCII_DISPLAY_LOW;
-    scc(SDL_RenderCopy(renderer, font->sprite, &font->glyph_table[index], &destine));
+    scc(SDL_RenderCopy(renderer, font->sprite, &font->glyph_table[index], &dst));
 }
 
 void render_text(
         SDL_Renderer *renderer, font_t *font, char const *text, size_t text_size,
-        v2f_t pos, Uint32 color, float scale)
+        v2f_t cam_pos, Uint32 color, float scale)
 {
+    v2f_t render_pos = cam_pos;
     set_texture_color(font->sprite, color);
     for (size_t i = 0; i < text_size; i++) {
         if (text[i] == '\n') {
-            pos.y += FONT_CHAR_HEIGHT * scale;
-            pos.x = 0;
+            render_pos.y += FONT_CHAR_HEIGHT * scale;
+            render_pos.x = cam_pos.x;
             continue;
         }
-        render_char(renderer, font, text[i], pos, scale);
-        pos.x += FONT_CHAR_WIDTH * scale;
+        render_char(renderer, font, text[i], render_pos, scale);
+        render_pos.x += FONT_CHAR_WIDTH * scale;
     }
 }
 
 buffer_t buffer = { 0 };
 v2f_t cam_pos = { 0 }, cam_vel = { 0 };
 
-void render_cursor(SDL_Renderer *renderer, font_t const *font, v2f_t pos, float scale)
+void render_cursor(SDL_Renderer *renderer, font_t const *font, v2f_t cam_pos, float scale)
 {
     SDL_Rect rect = {
-        .x = pos.x,
-        .y = pos.y,
+        .x = cam_pos.x,
+        .y = cam_pos.y,
         .w = FONT_CHAR_WIDTH * scale,
         .h = FONT_CHAR_HEIGHT * scale,
     };
@@ -158,9 +162,18 @@ void render_cursor(SDL_Renderer *renderer, font_t const *font, v2f_t pos, float 
     if (buffer.cursor < buffer.string.length) {
         if (buffer.string.data[buffer.cursor] != '\n' &&
             buffer.string.data[buffer.cursor] != '\0') {
-            render_char(renderer, font, buffer.string.data[buffer.cursor], pos, scale);
+            render_char(
+                    renderer, font, buffer.string.data[buffer.cursor], cam_pos, scale);
         }
     }
+}
+
+v2f_t camera_project_point(SDL_Window *window, v2f_t camera_pos, v2f_t point)
+{
+    int w, h;
+    SDL_GetWindowSize(window, &w, &h);
+
+    return v2f_add(v2f_sub(point, camera_pos), v2f_mulf(v2f(w, h), 0.5));
 }
 
 int main(int argc, char *argv[])
@@ -176,8 +189,8 @@ int main(int argc, char *argv[])
     scc(SDL_Init(SDL_INIT_VIDEO));
 
     SDL_Window *window = scp(SDL_CreateWindow(
-            "med", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 800, 600,
-            SDL_WINDOW_RESIZABLE));
+            "med", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, SCREEN_WIDTH,
+            SCREEN_HEIGHT, SDL_WINDOW_RESIZABLE));
     SDL_Renderer *renderer =
             scp(SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED));
 
@@ -260,20 +273,23 @@ int main(int argc, char *argv[])
         scc(SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0));
         scc(SDL_RenderClear(renderer));
 
-        v2f_t pos = {
+        v2f_t cur_pos = {
             .x = buffer_get_cursor_col(&buffer),
             .y = buffer_get_cursor_row(&buffer),
         };
-        pos = v2f_mul(
-                pos, v2f(FONT_SCALE * FONT_CHAR_WIDTH, FONT_SCALE * FONT_CHAR_HEIGHT));
-        cam_vel = v2f_sub(pos, cam_pos);
-        cam_pos = v2f_add(cam_pos, v2f_mulf(cam_vel, dt));
+        cur_pos =
+                v2f_mul(cur_pos,
+                        v2f(FONT_SCALE * FONT_CHAR_WIDTH, FONT_SCALE * FONT_CHAR_HEIGHT));
+
+        cam_vel = v2f_sub(cur_pos, cam_pos);
+        cam_pos = v2f_add(cam_pos, v2f_mulf(cam_vel, 2.0 * dt));
+        printf("cur_pos: %.2f %.2f\n", v2(cur_pos));
+        printf("cam_pos: %.2f %.2f\n", v2(cam_pos));
 
         render_text(
-                renderer, &font, buffer.string.data, buffer.string.length, cam_pos,
+                renderer, &font, buffer.string.data, buffer.string.length, camera_project_point(window, cam_pos, v2fs(0.0)),
                 0xFFFF'FFFF, FONT_SCALE);
-
-        render_cursor(renderer, &font, cam_pos, FONT_SCALE);
+        render_cursor(renderer, &font, camera_project_point(window, cam_pos, cur_pos), FONT_SCALE);
 
         SDL_RenderPresent(renderer);
     }
