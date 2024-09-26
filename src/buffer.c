@@ -2,8 +2,6 @@
 
 #include <assert.h>
 
-static size_t buffer_cursor_column(buffer_t const *b);
-
 void buffer_free(buffer_t *b)
 {
     str_free(&b->string);
@@ -39,7 +37,7 @@ void buffer_move_beginning_of_line(buffer_t *b)
 
 void buffer_next_line(buffer_t *b)
 {
-    size_t target_col = buffer_cursor_column(b);
+    size_t target_col = buffer_get_cursor_col(b);
 
     // Move to next line
     buffer_move_end_of_line(b);
@@ -56,7 +54,7 @@ void buffer_next_line(buffer_t *b)
 
 void buffer_previous_line(buffer_t *b)
 {
-    size_t target_col = buffer_cursor_column(b);
+    size_t target_col = buffer_get_cursor_col(b);
 
     // Move to previous line
     buffer_move_beginning_of_line(b);
@@ -118,7 +116,14 @@ void buffer_save_to_file(buffer_t const *b, FILE *fp)
     str_write_file(&b->string, fp);
 }
 
-static size_t buffer_cursor_column(buffer_t const *b)
+// Get Buffer Information
+
+size_t buffer_get_cursor_row(buffer_t const *b)
+{
+    return str_count_rev(&b->string, '\n', b->cursor);
+}
+
+size_t buffer_get_cursor_col(buffer_t const *b)
 {
     size_t index = str_find_char_rev(&b->string, '\n', b->cursor);
     return b->cursor - index - (index != 0);

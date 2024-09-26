@@ -56,6 +56,18 @@ size_t str_find_char_rev(str_t const *s, char c, size_t index)
     return index;
 }
 
+size_t str_count_rev(const str_t *s, char c, size_t index)
+{
+    assert(index <= s->length);
+    size_t count = 0;
+    while (index > 0) {
+        if (s->data[--index] == c) {
+            count++;
+        }
+    }
+    return count;
+}
+
 void str_load_file(str_t *s, FILE *fp)
 {
     assert(fseek(fp, 0, SEEK_END) >= 0);

@@ -141,19 +141,10 @@ void render_text(
 }
 
 buffer_t buffer = { 0 };
+v2f_t cam_pos = { 0 }, cam_vel = { 0 };
 
-void render_cursor(SDL_Renderer *renderer, font_t const *font, float scale)
+void render_cursor(SDL_Renderer *renderer, font_t const *font, v2f_t pos, float scale)
 {
-    v2f_t pos = { 0 };
-    for (size_t i = 0; i < buffer.cursor; i++) {
-        pos.x += 1.0;
-        if (buffer.string.data[i] == '\n') {
-            pos.x = 0;
-            pos.y += 1.0;
-        }
-    }
-    pos = v2f_mul(pos, v2f(scale * FONT_CHAR_WIDTH, scale * FONT_CHAR_HEIGHT));
-
     SDL_Rect rect = {
         .x = pos.x,
         .y = pos.y,
@@ -166,7 +157,7 @@ void render_cursor(SDL_Renderer *renderer, font_t const *font, float scale)
     set_texture_color(font->sprite, 0xFF00'0000);
     if (buffer.cursor < buffer.string.length) {
         if (buffer.string.data[buffer.cursor] != '\n' &&
-                buffer.string.data[buffer.cursor] != '\0') {
+            buffer.string.data[buffer.cursor] != '\0') {
             render_char(renderer, font, buffer.string.data[buffer.cursor], pos, scale);
         }
     }
@@ -193,12 +184,16 @@ int main(int argc, char *argv[])
     font_t font = font_from_file(renderer, FONT_FILENAME);
 
     bool quit = false;
+    float dt, now, last_frame = 0.0;
     while (!quit) {
+        now = (float) SDL_GetTicks() / 1000.0;
+        dt = now - last_frame;
+        last_frame = now;
+
         SDL_Event event = { 0 };
         while (SDL_PollEvent(&event)) {
             switch (event.type) {
                 case SDL_QUIT: {
-    printf("%d\n", __LINE__);
                     quit = true;
                 } break;
 
@@ -265,10 +260,20 @@ int main(int argc, char *argv[])
         scc(SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0));
         scc(SDL_RenderClear(renderer));
 
+        v2f_t pos = {
+            .x = buffer_get_cursor_col(&buffer),
+            .y = buffer_get_cursor_row(&buffer),
+        };
+        pos = v2f_mul(
+                pos, v2f(FONT_SCALE * FONT_CHAR_WIDTH, FONT_SCALE * FONT_CHAR_HEIGHT));
+        cam_vel = v2f_sub(pos, cam_pos);
+        cam_pos = v2f_add(cam_pos, v2f_mulf(cam_vel, dt));
+
         render_text(
-                renderer, &font, buffer.string.data, buffer.string.length, v2fs(0.0),
+                renderer, &font, buffer.string.data, buffer.string.length, cam_pos,
                 0xFFFF'FFFF, FONT_SCALE);
-        render_cursor(renderer, &font, FONT_SCALE);
+
+        render_cursor(renderer, &font, cam_pos, FONT_SCALE);
 
         SDL_RenderPresent(renderer);
     }
