@@ -1,3 +1,4 @@
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -47,7 +48,8 @@ SDL_Surface *surface_from_file(char const *filename)
     int width, height, n;
     unsigned char *pixels = stbi_load(filename, &width, &height, &n, STBI_rgb_alpha);
     if (pixels == NULL) {
-        eprintln("STBI ERROR: Could not load \"%s\": %s", filename, stbi_failure_reason());
+        eprintln(
+                "STBI ERROR: Could not load \"%s\": %s", filename, stbi_failure_reason());
         exit(1);
     }
 
@@ -109,7 +111,8 @@ void set_texture_color(SDL_Texture *texture, Uint32 color)
     scc(SDL_SetTextureAlphaMod(texture, (color >> (8 * 3)) & 0xFF));
 }
 
-void render_char(SDL_Renderer *renderer, font_t const *font, char c, v2f_t pos, float scale)
+void render_char(
+        SDL_Renderer *renderer, font_t const *font, char c, v2f_t pos, float scale)
 {
     assert(c >= ASCII_DISPLAY_LOW && c <= ASCII_DISPLAY_HIGH);
     SDL_Rect const destine = { .x = (int) floorf(pos.x),
@@ -122,8 +125,8 @@ void render_char(SDL_Renderer *renderer, font_t const *font, char c, v2f_t pos, 
 }
 
 void render_text(
-        SDL_Renderer *renderer, font_t *font, char const *text, size_t text_size, v2f_t pos,
-        Uint32 color, float scale)
+        SDL_Renderer *renderer, font_t *font, char const *text, size_t text_size,
+        v2f_t pos, Uint32 color, float scale)
 {
     set_texture_color(font->sprite, color);
     for (size_t i = 0; i < text_size; i++) {
@@ -161,8 +164,11 @@ void render_cursor(SDL_Renderer *renderer, font_t const *font, float scale)
     scc(SDL_RenderFillRect(renderer, &rect));
 
     set_texture_color(font->sprite, 0xFF00'0000);
-    if (buffer.string.data[buffer.cursor] != '\n' && buffer.string.data[buffer.cursor] != '\0') {
-        render_char(renderer, font, buffer.string.data[buffer.cursor], pos, scale);
+    if (buffer.cursor < buffer.string.length) {
+        if (buffer.string.data[buffer.cursor] != '\n' &&
+                buffer.string.data[buffer.cursor] != '\0') {
+            render_char(renderer, font, buffer.string.data[buffer.cursor], pos, scale);
+        }
     }
 }
 
@@ -170,13 +176,19 @@ int main(int argc, char *argv[])
 {
     assert(argc == 2);
     char const *filename = argv[1];
-    buffer_load_file(&buffer, filename);
+    FILE *fp = fopen(filename, "r");
+    if (fp != NULL) {
+        buffer_load_file(&buffer, fp);
+        fclose(fp);
+    }
 
     scc(SDL_Init(SDL_INIT_VIDEO));
 
     SDL_Window *window = scp(SDL_CreateWindow(
-            "med", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 800, 600, SDL_WINDOW_RESIZABLE));
-    SDL_Renderer *renderer = scp(SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED));
+            "med", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 800, 600,
+            SDL_WINDOW_RESIZABLE));
+    SDL_Renderer *renderer =
+            scp(SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED));
 
     font_t font = font_from_file(renderer, FONT_FILENAME);
 
@@ -186,6 +198,7 @@ int main(int argc, char *argv[])
         while (SDL_PollEvent(&event)) {
             switch (event.type) {
                 case SDL_QUIT: {
+    printf("%d\n", __LINE__);
                     quit = true;
                 } break;
 
@@ -229,7 +242,15 @@ int main(int argc, char *argv[])
 
                         case SDLK_s: {
                             if (event.key.keysym.mod & KMOD_CTRL) {
-                                buffer_save_to_file(&buffer, filename);
+                                FILE *fp = fopen(filename, "w");
+                                if (fp == NULL) {
+                                    eprintln(
+                                            "Could not open file %s: %s\n", filename,
+                                            strerror(errno));
+                                    exit(1);
+                                }
+                                buffer_save_to_file(&buffer, fp);
+                                fclose(fp);
                             }
                         }
                     }
@@ -245,8 +266,8 @@ int main(int argc, char *argv[])
         scc(SDL_RenderClear(renderer));
 
         render_text(
-                renderer, &font, buffer.string.data, buffer.string.length, v2fs(0.0), 0xFFFF'FFFF,
-                FONT_SCALE);
+                renderer, &font, buffer.string.data, buffer.string.length, v2fs(0.0),
+                0xFFFF'FFFF, FONT_SCALE);
         render_cursor(renderer, &font, FONT_SCALE);
 
         SDL_RenderPresent(renderer);

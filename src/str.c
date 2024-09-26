@@ -56,30 +56,21 @@ size_t str_find_char_rev(str_t const *s, char c, size_t index)
     return index;
 }
 
-void str_load_file(str_t *s, char const *filename)
+void str_load_file(str_t *s, FILE *fp)
 {
-    FILE *fp = fopen(filename, "r");
-    if (fp == NULL) {
-        eprintln("Could not open file %s: %s\n", filename, strerror(errno));
-        exit(1);
-    }
     assert(fseek(fp, 0, SEEK_END) >= 0);
     long filesize = ftell(fp);
     assert(filesize >= 0);
     assert(fseek(fp, 0, SEEK_SET) >= 0);
 
     str_grow(s, filesize);
-    assert(fread(s->data, sizeof *s->data, s->capacity, fp) ==
-           s->capacity / sizeof *s->data);
+    assert(fread(s->data, sizeof *s->data, s->capacity, fp) == (size_t) filesize);
     s->length += filesize;
-    fclose(fp);
 }
 
-void str_write_file(str_t const *s, char const *filename)
+void str_write_file(str_t const *s, FILE *fp)
 {
-    FILE *fp = fopen(filename, "w");
     fwrite(s->data, sizeof *s->data, s->length, fp);
-    fclose(fp);
 }
 
 static void str_grow(str_t *s, size_t size)

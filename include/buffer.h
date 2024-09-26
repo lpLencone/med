@@ -29,7 +29,7 @@ void buffer_delete_char(buffer_t *b);
 void buffer_newline(buffer_t *b);
 
 // File I/O
-void buffer_load_file(buffer_t *b, const char *filename);
-void buffer_save_to_file(const buffer_t *b, const char *filename);
+void buffer_load_file(buffer_t *b, FILE *fp);
+void buffer_save_to_file(buffer_t const *b, FILE *fp);
 
 #endif // BUFFER_H_

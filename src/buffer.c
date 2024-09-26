@@ -107,15 +107,15 @@ void buffer_newline(buffer_t *b)
 
 // File I/O
 
-void buffer_load_file(buffer_t *b, char const *filename)
+void buffer_load_file(buffer_t *b, FILE *fp)
 {
     buffer_free(b);
-    str_load_file(&b->string, filename);
+    str_load_file(&b->string, fp);
 }
 
-void buffer_save_to_file(buffer_t const *b, char const *filename)
+void buffer_save_to_file(buffer_t const *b, FILE *fp)
 {
-    str_write_file(&b->string, filename);
+    str_write_file(&b->string, fp);
 }
 
 static size_t buffer_cursor_column(buffer_t const *b)
