@@ -39,3 +39,4 @@ v2f_t v2f_divf(v2f_t v, float f)
 {
     return v2f(v.x / f, v.y / f);
 }
+
