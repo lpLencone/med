@@ -154,6 +154,24 @@ void buffer_insert_text(char const *text, size_t text_size)
     buffer_size += text_size;
 }
 
+void buffer_delete_backward_char(void)
+{
+    assert(buffer_cursor <= buffer_size);
+    if (buffer_cursor > 0) {
+        memmove(buffer + buffer_cursor - 1, buffer + buffer_cursor, buffer_size - buffer_cursor);
+        buffer_cursor--;
+        buffer_size--;
+    }
+}
+
+void buffer_delete_char(void)
+{
+    if (buffer_cursor < buffer_size) {
+        memmove(buffer + buffer_cursor, buffer + buffer_cursor + 1, buffer_size - buffer_cursor - 1);
+        buffer_size--;
+    }
+}
+
 void render_cursor(SDL_Renderer *renderer, font_t const *font, float scale)
 {
     v2f_t pos = v2f(buffer_cursor * scale * FONT_CHAR_WIDTH, 0.0);
@@ -194,9 +212,11 @@ int main(void)
                 case SDL_KEYDOWN: {
                     switch (event.key.keysym.sym) {
                         case SDLK_BACKSPACE: {
-                            if (buffer_size > 0) {
-                                buffer_size--;
-                            }
+                            buffer_delete_backward_char();
+                        } break;
+
+                        case SDLK_DELETE: {
+                            buffer_delete_char();
                         } break;
 
                         case SDLK_l: {
