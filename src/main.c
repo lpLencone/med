@@ -228,7 +228,7 @@ int main(int argc, char *argv[])
     }
 
     char const *text = "Hello, World!";
-    render_text(text, strlen(text), vec2s(0.0), 5.0, vec4(0.8, 0.8, 0.5, 1.0));
+    render_text(text, strlen(text), vec2s(0.0), 3.0, vec4(0.8, 0.8, 0.5, 1.0));
     glyph_buffer_sync();
 
     bool quit = false;
@@ -236,6 +236,16 @@ int main(int argc, char *argv[])
         SDL_Event event = { 0 };
         while (SDL_PollEvent(&event)) {
             switch (event.type) {
+                case SDL_WINDOWEVENT: {
+                    if (event.window.event == SDL_WINDOWEVENT_RESIZED) {
+                        int width, height;
+                        SDL_GetWindowSize(window, &width, &height);
+                        glViewport(0, 0, width, height);
+                        shader_uniform2f(&shader, "resolution", (float) width, (float) height);
+                        printf("%d %d\n", width, height);
+                    }
+                } break;
+
                 case SDL_QUIT: {
                     quit = true;
                 } break;
