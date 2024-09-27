@@ -11,11 +11,17 @@
 
 uniform sampler2D font;
 uniform float time;
+uniform vec2 resolution;
 
 in vec2 uv;
 in vec4 v_fg;
 in vec4 v_bg;
 flat in int v_ch;
+
+vec3 hsl2rgb(vec3 c) {
+    vec3 rgb = clamp(abs(mod(c.x * 6.0 + vec3(0.0, 4.0, 2.0), 6.0) - 3.0) - 1.0, 0.0, 1.0);
+    return c.z + c.y * (rgb - 0.5) * (1.0 - abs(2.0 * c.z - 1.0));
+}
 
 float map01(float f) {
     return (1.0 + f) / 2.0;
@@ -36,11 +42,8 @@ void main() {
     vec2 t = pos + size * uv;
 
     vec4 tc = texture(font, t);
-    vec4 rainbow = vec4(
-            map01(sin(time + uv.x)),
-            map01(cos(time + uv.y)),
-            map01(sin(time + uv.y) * cos(time + uv.x)),
-            1.0);
+    vec2 frag_uv = gl_FragCoord.xy / resolution;
+    vec4 rainbow = vec4(hsl2rgb(vec3(frag_uv.x + frag_uv.y + time, 0.5, 0.5)), 1.0);
 
     gl_FragColor = v_bg * (1 - tc.x) + tc.x * v_fg * rainbow;
 }
