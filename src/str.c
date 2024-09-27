@@ -61,7 +61,7 @@ size_t str_count_rev(const str_t *s, char c, size_t index)
     assert(index <= s->length);
     size_t count = 0;
     while (index > 0) {
-        if (s->data[index] == c) {
+        if (s->data[--index] == c) {
             count++;
         }
     }

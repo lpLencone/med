@@ -102,7 +102,7 @@ static glyph_attr_t glyph_attrs[GLYPH_ATTR_COUNT] = {
 
 static_assert(GLYPH_ATTR_COUNT == 4, "The amount of glyph attributes has changed.");
 
-    #define GLYPH_BUFFER_CAP 1024
+    #define GLYPH_BUFFER_CAP 640 * 1024
 glyph_t glyph_buffer[GLYPH_BUFFER_CAP];
 size_t glyph_count = 0;
 
@@ -119,9 +119,16 @@ void glyph_buffer_sync(void)
 
 void render_text(char const *text, size_t text_size, v2i_t tile, v4f_t fg, v4f_t bg)
 {
-    for (size_t i = 0; i < text_size; i++) {
+    long row = 0;
+    long col = 0;
+    for (size_t i = 0; i < text_size; i++, col++) {
+        if (text[i] == '\n') {
+            row--;
+            col = -1;
+            continue;
+        }
         glyph_buffer_push((glyph_t) {
-                .tile = v2i_add(tile, v2i(i, 0)),
+                .tile = v2i_add(tile, v2i(col, row)),
                 .ch = text[i],
                 .fg = fg,
                 .bg = bg,
@@ -129,10 +136,32 @@ void render_text(char const *text, size_t text_size, v2i_t tile, v4f_t fg, v4f_t
     }
 }
 
+buffer_t buffer = { 0 };
+v2f_t cam_pos = { 0 }, cam_vel = { 0 };
+
+void render_cursor(void)
+{
+    if (buffer.cursor < buffer.string.length) {
+        v2i_t tile = {
+            .x = buffer_get_cursor_col(&buffer),
+            .y = buffer_get_cursor_row(&buffer),
+        };
+        const char *c = buffer.string.data + buffer.cursor;
+        render_text(
+                (*c != '\n') ? c : " ", 1, v2i(tile.x, -tile.y),
+                v4fs(0.0), v4fs(1.0));
+    }
+}
+
 int main(int argc, char *argv[])
 {
-    (void) argc;
-    (void) argv;
+    assert(argc == 2);
+    char const *filename = argv[1];
+    FILE *fp = fopen(filename, "r");
+    if (fp != NULL) {
+        buffer_load_file(&buffer, fp);
+        fclose(fp);
+    }
 
     scc(SDL_Init(SDL_INIT_VIDEO));
     SDL_Window *window = scp(SDL_CreateWindow(
@@ -233,14 +262,13 @@ int main(int argc, char *argv[])
         }
     }
 
-    char const *text = "Hello, World!";
-    render_text(text, strlen(text), v2is(0), v4fs(1.0), v4fs(0.0));
-    text = "Foo Bar";
-    render_text(text, strlen(text), v2i(0, 1), v4f(1.0, 0.5, 0.5, 1.0), v4fs(0.0));
-    glyph_buffer_sync();
-
     bool quit = false;
+    float dt, now, last_frame = 0.0;
     while (!quit) {
+        now = SDL_GetTicks() / 1000.0;
+        dt = now - last_frame;
+        last_frame = now;
+
         SDL_Event event = { 0 };
         while (SDL_PollEvent(&event)) {
             switch (event.type) {
@@ -257,15 +285,92 @@ int main(int argc, char *argv[])
                 case SDL_QUIT: {
                     quit = true;
                 } break;
+
+                case SDL_KEYDOWN: {
+                    switch (event.key.keysym.sym) {
+                        case SDLK_BACKSPACE: {
+                            buffer_delete_backward_char(&buffer);
+                        } break;
+
+                        case SDLK_DELETE: {
+                            buffer_delete_char(&buffer);
+                        } break;
+
+                        case SDLK_RETURN: {
+                            buffer_newline(&buffer);
+                        } break;
+
+                        case SDLK_l: {
+                            if (event.key.keysym.mod & KMOD_CTRL) {
+                                buffer_forward_char(&buffer);
+                            }
+                        } break;
+
+                        case SDLK_h: {
+                            if (event.key.keysym.mod & KMOD_CTRL) {
+                                buffer_backward_char(&buffer);
+                            }
+                        } break;
+
+                        case SDLK_j: {
+                            if (event.key.keysym.mod & KMOD_CTRL) {
+                                buffer_next_line(&buffer);
+                            }
+                        } break;
+
+                        case SDLK_k: {
+                            if (event.key.keysym.mod & KMOD_CTRL) {
+                                buffer_previous_line(&buffer);
+                            }
+                        } break;
+
+                        case SDLK_s: {
+                            if (event.key.keysym.mod & KMOD_CTRL) {
+                                FILE *fp = fopen(filename, "w");
+                                if (fp == NULL) {
+                                    eprintln(
+                                            "Could not open file %s: %s\n", filename,
+                                            strerror(errno));
+                                    exit(1);
+                                }
+                                buffer_save_to_file(&buffer, fp);
+                                fclose(fp);
+                            }
+                        }
+                    }
+                } break;
+
+                case SDL_TEXTINPUT: {
+                    buffer_insert_text(&buffer, event.text.text, strlen(event.text.text));
+                } break;
             }
         }
 
         glClearColor(0.0, 0.0, 0.0, 1.0);
         glClear(GL_COLOR_BUFFER_BIT);
 
+        glyph_count = 0;
+        render_text(
+                buffer.string.data, buffer.string.length, v2i(0, 0), v4fs(1.0),
+                v4fs(0.0));
+        render_cursor();
+        glyph_buffer_sync();
+
+        v2f_t cur_pos = {
+            .x = buffer_get_cursor_col(&buffer),
+            .y = buffer_get_cursor_row(&buffer),
+        };
+        cur_pos =
+                v2f_mul(cur_pos,
+                        v2f(FONT_SCALE * FONT_CHAR_WIDTH, FONT_SCALE * FONT_CHAR_HEIGHT));
+        cam_vel = v2f_sub(cur_pos, cam_pos);
+        cam_pos = v2f_add(cam_pos, v2f_mulf(cam_vel, 2.0 * dt));
+
         shader_use(&shader);
+        shader_uniform2f(&shader, "u_camera", cam_pos.x, -cam_pos.y);
         shader_uniform1f(&shader, "time", SDL_GetTicks() / 1000.0);
         shader_uniform1f(&shader, "scale", 3.0);
+
         glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, glyph_count);
 
         SDL_GL_SwapWindow(window);
@@ -519,8 +624,6 @@ int main(int argc, char *argv[])
 
         cam_vel = v2f_sub(cur_pos, cam_pos);
         cam_pos = v2f_add(cam_pos, v2f_mulf(cam_vel, 2.0 * dt));
-        printf("cur_pos: %.2f %.2f\n", v2(cur_pos));
-        printf("cam_pos: %.2f %.2f\n", v2(cam_pos));
 
         render_text(
                 renderer, &font, buffer.string.data, buffer.string.length,
