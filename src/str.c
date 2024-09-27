@@ -61,7 +61,7 @@ size_t str_count_rev(const str_t *s, char c, size_t index)
     assert(index <= s->length);
     size_t count = 0;
     while (index > 0) {
-        if (s->data[--index] == c) {
+        if (s->data[index] == c) {
             count++;
         }
     }
@@ -78,6 +78,7 @@ void str_load_file(str_t *s, FILE *fp)
     str_grow(s, filesize);
     assert(fread(s->data, sizeof *s->data, s->capacity, fp) == (size_t) filesize);
     s->length += filesize;
+    s->data[s->length] = '\0';
 }
 
 void str_write_file(str_t const *s, FILE *fp)
