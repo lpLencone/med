@@ -8,16 +8,18 @@
 #define FONT_CHAR_HEIGHT (FONT_HEIGHT / FONT_ROWS)
 #define FONT_SCALE       4.0
 
-layout (location = 0) in vec2 l_pos;
-layout (location = 1) in float l_scale;
-layout (location = 2) in float l_ch;
-layout (location = 3) in vec4 l_color;
+layout(location = 0) in ivec2 l_tile;
+layout(location = 1) in int l_ch;
+layout(location = 2) in vec4 l_fg;
+layout(location = 3) in vec4 l_bg;
 
 uniform vec2 resolution;
+uniform float scale;
 
 out vec2 uv;
-out vec4 v_color;
-out float v_ch;
+out vec4 v_fg;
+out vec4 v_bg;
+flat out int v_ch;
 
 vec2 project_point(vec2 point)
 {
@@ -26,8 +28,11 @@ vec2 project_point(vec2 point)
 
 void main() {
     v_ch = l_ch;
-    v_color = l_color;
+    v_fg = l_fg;
+    v_bg = l_bg;
+
     uv = vec2(float(gl_VertexID & 1), float((gl_VertexID >> 1) & 1));
+
     vec2 char_size = vec2(FONT_CHAR_WIDTH, FONT_CHAR_HEIGHT);
-    gl_Position = vec4(project_point(uv * char_size * l_scale + l_pos), 0.0, 1.0);
+    gl_Position = vec4(project_point((uv + l_tile) * scale * char_size), 0.0, 1.0);
 }

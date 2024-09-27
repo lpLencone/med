@@ -13,11 +13,12 @@ uniform sampler2D font;
 uniform float time;
 
 in vec2 uv;
-in vec4 v_color;
-in float v_ch;
+in vec4 v_fg;
+in vec4 v_bg;
+flat in int v_ch;
 
 void main() {
-    int ch = int(v_ch);
+    int ch = v_ch;
     if (ch < 32 || ch > 126) {
         ch = 63;
     }
@@ -30,5 +31,6 @@ void main() {
     vec2 size = vec2(FONT_CHAR_WIDTH_UV, -FONT_CHAR_HEIGHT_UV);
     vec2 t = pos + size * uv;
 
-    gl_FragColor = texture(font, t) * v_color;
+    vec4 tc = texture(font, t);
+    gl_FragColor = v_bg * (1 - tc) + tc * v_fg;
 }

@@ -5,7 +5,7 @@
 
 #include <stdint.h>
 
-#include "math_3d.h"
+#include "la.h"
 
 typedef struct {
     uint32_t program;
@@ -17,10 +17,11 @@ void shader_use(shader_t const *s);
 void shader_uniform1i(shader_t const *s, char const *name, int value);
 void shader_uniform1f(shader_t const *s, char const *name, float value);
 void shader_uniform2f(shader_t const *s, char const *name, float v0, float v1);
+void shader_uniform2i(shader_t const *s, char const *name, int v0, int v1);
 void shader_uniform4f(
         shader_t const *s, char const *name, float v0, float v1, float v2,
         float v3);
-void shader_uniform_v3f(shader_t const *s, char const *name, vec3_t v);
-void shader_uniform_m4f(shader_t const *s, char const *name, mat4_t m);
+void shader_uniform_v3f(shader_t const *s, char const *name, v3f_t v);
+// void shader_uniform_m4f(shader_t const *s, char const *name, mat4_t m);
 
 #endif // SHADER_H_

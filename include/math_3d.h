@@ -104,6 +104,18 @@ static inline vec2_t v2_muls(vec2_t v, float f) { return vec2(v.x * f, v.y * f);
 static inline vec2_t v2_div(vec2_t a, vec2_t b) { return vec2(a.x / b.x, a.y / b.y); }
 static inline vec2_t v2_divs(vec2_t v, float f) { return vec2(v.x / f, v.y / f); }
 
+typedef struct { float x, y; } vec2i_t;
+static inline vec2i_t vec2i(int x, float y)        { return (vec2i_t){ x, y }; }
+static inline vec2i_t vec2is(int i)                { return (vec2i_t){ i, i }; }
+
+static inline vec2i_t v2i_neg(vec2i_t v) { return vec2i(-v.x, -v.y); }
+static inline vec2i_t v2i_add(vec2i_t a, vec2i_t b) { return vec2i(a.x + b.x, a.y + b.y); }
+static inline vec2i_t v2i_sub(vec2i_t a, vec2i_t b) { return vec2i(a.x - b.x, a.y - b.y); }
+static inline vec2i_t v2i_mul(vec2i_t a, vec2i_t b) { return vec2i(a.x * b.x, a.y * b.y); }
+static inline vec2i_t v2i_muls(vec2i_t v, int i) { return vec2i(v.x * i, v.y * i); }
+static inline vec2i_t v2i_div(vec2i_t a, vec2i_t b) { return vec2i(a.x / b.x, a.y / b.y); }
+static inline vec2i_t v2i_divs(vec2i_t v, int i) { return vec2i(v.x / i, v.y / i); }
+
 //
 // 3D vectors
 // 

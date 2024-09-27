@@ -6,8 +6,8 @@
 #include <SDL2/SDL.h>
 
 #include "buffer.h"
+#include "la.h"
 #include "lib.h"
-#include "math_3d.h"
 #include "shader.h"
 
 #define STB_IMAGE_IMPLEMENTATION
@@ -52,22 +52,22 @@ void MessageCallback(
         GLchar const *message, void const *userParam)
 {
     (void) source, (void) id, (void) length, (void) userParam, (void) severity;
-    fprintf(stderr, "GL CALLBACK: %s message = %s\n",
-            type == GL_DEBUG_TYPE_ERROR ? "** GL ERROR **" : "", message);
+    fprintf(stderr, "%s | message = %s\n",
+            type == GL_DEBUG_TYPE_ERROR ? "GL ERROR" : "GL INFO ", message);
 }
 
 typedef struct {
-    vec2_t pos;
-    float scale;
-    float ch;
-    vec4_t color;
+    v2i_t tile;
+    int ch;
+    v4f_t fg;
+    v4f_t bg;
 } glyph_t;
 
 enum glyph_attr {
-    GLYPH_ATTR_POS = 0,
-    GLYPH_ATTR_SCALE,
+    GLYPH_ATTR_TILE = 0,
     GLYPH_ATTR_CH,
-    GLYPH_ATTR_COLOR,
+    GLYPH_ATTR_FG,
+    GLYPH_ATTR_BG,
     GLYPH_ATTR_COUNT,
 };
 
@@ -78,23 +78,23 @@ typedef struct {
 } glyph_attr_t;
 
 static glyph_attr_t glyph_attrs[GLYPH_ATTR_COUNT] = {
-    [GLYPH_ATTR_POS]   = {
-        .ptr = (GLvoid *) offsetof(glyph_t, pos),
+    [GLYPH_ATTR_TILE]   = {
+        .ptr = (GLvoid *) offsetof(glyph_t, tile),
         .size = 2,
-        .type = GL_FLOAT,
-    },
-    [GLYPH_ATTR_SCALE] = {
-        .ptr = (GLvoid *) offsetof(glyph_t, scale),
-        .size = 1,
-        .type = GL_FLOAT,
+        .type = GL_INT,
     },
     [GLYPH_ATTR_CH]    = {
         .ptr = (GLvoid *) offsetof(glyph_t, ch),
         .size = 1,
+        .type = GL_INT,
+    },
+    [GLYPH_ATTR_FG] = {
+        .ptr = (GLvoid *) offsetof(glyph_t, fg),
+        .size = 4,
         .type = GL_FLOAT,
     },
-    [GLYPH_ATTR_COLOR] = {
-        .ptr = (GLvoid *) offsetof(glyph_t, color),
+    [GLYPH_ATTR_BG] = {
+        .ptr = (GLvoid *) offsetof(glyph_t, bg),
         .size = 4,
         .type = GL_FLOAT,
     },
@@ -117,18 +117,15 @@ void glyph_buffer_sync(void)
     glBufferSubData(GL_ARRAY_BUFFER, 0, glyph_count * sizeof *glyph_buffer, glyph_buffer);
 }
 
-void render_text(
-        char const *text, size_t text_size, vec2_t pos, float scale, vec4_t color)
+void render_text(char const *text, size_t text_size, v2i_t tile, v4f_t fg, v4f_t bg)
 {
     for (size_t i = 0; i < text_size; i++) {
-        vec2_t const char_size = vec2(FONT_CHAR_WIDTH, FONT_CHAR_HEIGHT);
-        glyph_t glyph = {
-            .pos = v2_add(pos, v2_muls(v2_mul(char_size, vec2(i, 0.0)), scale)),
-            .scale = scale,
-            .ch = text[i],
-            .color = color,
-        };
-        glyph_buffer_push(glyph);
+        glyph_buffer_push((glyph_t) {
+                .tile = v2i_add(tile, v2i(i, 0)),
+                .ch = text[i],
+                .fg = fg,
+                .bg = bg,
+        });
     }
 }
 
@@ -219,16 +216,27 @@ int main(int argc, char *argv[])
         glBufferData(GL_ARRAY_BUFFER, sizeof glyph_buffer, glyph_buffer, GL_DYNAMIC_DRAW);
 
         for (enum glyph_attr attr = 0; attr < GLYPH_ATTR_COUNT; attr++) {
-            glVertexAttribPointer(
-                    attr, glyph_attrs[attr].size, glyph_attrs[attr].type, GL_FALSE,
-                    sizeof *glyph_buffer, glyph_attrs[attr].ptr);
+            if (glyph_attrs[attr].type == GL_FLOAT) {
+                glVertexAttribPointer(
+                        attr, glyph_attrs[attr].size, GL_FLOAT, GL_FALSE,
+                        sizeof *glyph_buffer, glyph_attrs[attr].ptr);
+            } else if (glyph_attrs[attr].type == GL_INT) {
+                glVertexAttribIPointer(
+                        attr, glyph_attrs[attr].size, GL_INT, sizeof *glyph_buffer,
+                        glyph_attrs[attr].ptr);
+            } else {
+                assert(false && "Type not handled");
+                exit(1);
+            }
             glVertexAttribDivisor(attr, 1);
             glEnableVertexAttribArray(attr);
         }
     }
 
     char const *text = "Hello, World!";
-    render_text(text, strlen(text), vec2s(0.0), 3.0, vec4(0.8, 0.8, 0.5, 1.0));
+    render_text(text, strlen(text), v2is(0), v4fs(1.0), v4fs(0.0));
+    text = "Foo Bar";
+    render_text(text, strlen(text), v2i(0, 1), v4f(1.0, 0.5, 0.5, 1.0), v4fs(0.0));
     glyph_buffer_sync();
 
     bool quit = false;
@@ -241,8 +249,8 @@ int main(int argc, char *argv[])
                         int width, height;
                         SDL_GetWindowSize(window, &width, &height);
                         glViewport(0, 0, width, height);
-                        shader_uniform2f(&shader, "resolution", (float) width, (float) height);
-                        printf("%d %d\n", width, height);
+                        shader_uniform2f(
+                                &shader, "resolution", (float) width, (float) height);
                     }
                 } break;
 
@@ -257,7 +265,7 @@ int main(int argc, char *argv[])
 
         shader_use(&shader);
         shader_uniform1f(&shader, "time", SDL_GetTicks() / 1000.0);
-        shader_uniform2f(&shader, "resolution", SCREEN_WIDTH, SCREEN_HEIGHT);
+        shader_uniform1f(&shader, "scale", 3.0);
         glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, glyph_count);
 
         SDL_GL_SwapWindow(window);
@@ -343,7 +351,7 @@ void set_texture_color(SDL_Texture *texture, Uint32 color)
 }
 
 void render_char(
-        SDL_Renderer *renderer, font_t const *font, char c, vec2_t cam_pos, float scale)
+        SDL_Renderer *renderer, font_t const *font, char c, v2f_t cam_pos, float scale)
 {
     assert(c >= ASCII_DISPLAY_LOW && c <= ASCII_DISPLAY_HIGH);
     SDL_Rect const dst = { .x = (int) floorf(cam_pos.x),
@@ -357,9 +365,9 @@ void render_char(
 
 void render_text(
         SDL_Renderer *renderer, font_t *font, char const *text, size_t text_size,
-        vec2_t cam_pos, Uint32 color, float scale)
+        v2f_t cam_pos, Uint32 color, float scale)
 {
-    vec2_t render_pos = cam_pos;
+    v2f_t render_pos = cam_pos;
     set_texture_color(font->sprite, color);
     for (size_t i = 0; i < text_size; i++) {
         if (text[i] == '\n') {
@@ -373,10 +381,9 @@ void render_text(
 }
 
 buffer_t buffer = { 0 };
-vec2_t cam_pos = { 0 }, cam_vel = { 0 };
+v2f_t cam_pos = { 0 }, cam_vel = { 0 };
 
-void render_cursor(
-        SDL_Renderer *renderer, font_t const *font, vec2_t cam_pos, float scale)
+void render_cursor(SDL_Renderer *renderer, font_t const *font, v2f_t cam_pos, float scale)
 {
     SDL_Rect rect = {
         .x = cam_pos.x,
@@ -397,12 +404,12 @@ void render_cursor(
     }
 }
 
-vec2_t camera_project_point(SDL_Window *window, vec2_t camera_pos, vec2_t point)
+v2f_t camera_project_point(SDL_Window *window, v2f_t camera_pos, v2f_t point)
 {
     int w, h;
     SDL_GetWindowSize(window, &w, &h);
 
-    return v2_add(v2_sub(point, camera_pos), v2_muls(vec2(w, h), 0.5));
+    return v2f_add(v2f_sub(point, camera_pos), v2f_mulf(v2f(w, h), 0.5));
 }
 
 int main(int argc, char *argv[])
@@ -502,7 +509,7 @@ int main(int argc, char *argv[])
         scc(SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0));
         scc(SDL_RenderClear(renderer));
 
-        vec2_t cur_pos = {
+        v2f_t cur_pos = {
             .x = buffer_get_cursor_col(&buffer),
             .y = buffer_get_cursor_row(&buffer),
         };
@@ -510,8 +517,8 @@ int main(int argc, char *argv[])
                 v2f_mul(cur_pos,
                         v2f(FONT_SCALE * FONT_CHAR_WIDTH, FONT_SCALE * FONT_CHAR_HEIGHT));
 
-        cam_vel = v2_sub(cur_pos, cam_pos);
-        cam_pos = v2_add(cam_pos, v2_muls(cam_vel, 2.0 * dt));
+        cam_vel = v2f_sub(cur_pos, cam_pos);
+        cam_pos = v2f_add(cam_pos, v2f_mulf(cam_vel, 2.0 * dt));
         printf("cur_pos: %.2f %.2f\n", v2(cur_pos));
         printf("cam_pos: %.2f %.2f\n", v2(cam_pos));
 
@@ -529,6 +536,3 @@ int main(int argc, char *argv[])
     SDL_Quit();
 }
 #endif
-
-#define MATH_3D_IMPLEMENTATION
-#include "math_3d.h"

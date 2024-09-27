@@ -81,19 +81,25 @@ void shader_uniform2f(shader_t const *s, char const *name, float v0, float v1)
 {
     glUniform2f(glGetUniformLocation(s->program, name), v0, v1);
 }
+
+void shader_uniform2i(shader_t const *s, char const *name, int v0, int v1)
+{
+    glUniform2i(glGetUniformLocation(s->program, name), v0, v1);
+}
+
 void shader_uniform4f(
         shader_t const *s, char const *name, float v0, float v1, float v2, float v3)
 {
     glUniform4f(glGetUniformLocation(s->program, name), v0, v1, v2, v3);
 }
 
-void shader_uniform_v3f(shader_t const *s, char const *name, vec3_t v)
+void shader_uniform_v3f(shader_t const *s, char const *name, v3f_t v)
 {
     glUniform3fv(glGetUniformLocation(s->program, name), 1, (GLfloat *) &v);
 }
 
-void shader_uniform_m4f(shader_t const *s, char const *name, mat4_t m)
-{
-    glUniformMatrix4fv(
-            glGetUniformLocation(s->program, name), 1, GL_FALSE, (GLfloat const *) m.m);
-}
+// void shader_uniform_m4f(shader_t const *s, char const *name, mat4_t m)
+// {
+//     glUniformMatrix4fv(
+//             glGetUniformLocation(s->program, name), 1, GL_FALSE, (GLfloat const *) m.m);
+// }
