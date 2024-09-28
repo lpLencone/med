@@ -13,9 +13,9 @@ layout(location = 1) in int l_ch;
 layout(location = 2) in vec4 l_fg;
 layout(location = 3) in vec4 l_bg;
 
-uniform vec2 resolution;
-uniform float scale;
-uniform float time;
+uniform vec2 u_resolution;
+uniform float u_scale;
+uniform float u_time;
 uniform vec2 u_camera;
 
 out vec2 uv;
@@ -25,7 +25,7 @@ flat out int v_ch;
 
 vec2 project_point(vec2 point)
 {
-    return 2.0 * (point - u_camera) / resolution;
+    return 2.0 * (point - u_camera) / u_resolution;
 }
 
 void main() {
@@ -34,9 +34,9 @@ void main() {
     v_bg = l_bg;
 
     uv = vec2(float(gl_VertexID & 1), float((gl_VertexID >> 1) & 1));
-    vec2 shaking = vec2(cos(time +  l_tile.y), sin(time + l_tile.x));
+    vec2 shaking = vec2(cos(u_time +  l_tile.y), sin(u_time + l_tile.x));
     vec2 tile = l_tile;
 
     vec2 char_size = vec2(FONT_CHAR_WIDTH, FONT_CHAR_HEIGHT);
-    gl_Position = vec4(project_point((uv + tile) * scale * char_size), 0.0, 1.0);
+    gl_Position = vec4(project_point((uv + tile) * u_scale * char_size), 0.0, 1.0);
 }

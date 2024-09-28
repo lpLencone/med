@@ -10,8 +10,8 @@
 #define FONT_CHAR_HEIGHT_UV (float(FONT_CHAR_HEIGHT) / float(FONT_HEIGHT))
 
 uniform sampler2D font;
-uniform float time;
-uniform vec2 resolution;
+uniform float u_time;
+uniform vec2 u_resolution;
 
 in vec2 uv;
 in vec4 v_fg;
@@ -42,8 +42,8 @@ void main() {
     vec2 t = pos + size * uv;
 
     vec4 tc = texture(font, t);
-    vec2 frag_uv = gl_FragCoord.xy / resolution;
-    vec4 rainbow = vec4(hsl2rgb(vec3(frag_uv.x + frag_uv.y + time, 0.5, 0.5)), 1.0);
+    vec2 frag_uv = gl_FragCoord.xy / u_resolution;
+    vec4 rainbow = vec4(hsl2rgb(vec3(frag_uv.x + frag_uv.y + u_time, 0.5, 0.5)), 1.0);
 
     gl_FragColor = v_bg * (1 - tc.x) + tc.x * v_fg * rainbow;
 }

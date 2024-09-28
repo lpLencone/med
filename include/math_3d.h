@@ -147,22 +147,6 @@ static inline vec3_t v3_cross (vec3_t a, vec3_t b);
 static inline float  v3_angle_between(vec3_t a, vec3_t b);
 
 
-// 4D Vectors
-
-typedef struct { float x, y, z, w; } vec4_t;
-static inline vec4_t vec4(float x, float y, float z, float w)        { return (vec4_t){ x, y, z, w }; }
-static inline vec4_t vec4s(float f)                { return (vec4_t){ f, f, f, f }; }
-#define v4(v) v.x, v.y, v.z, v.w
-
-static inline vec4_t v4_neg(vec4_t v) { return vec4(-v.x, -v.y, -v.z, -v.w); }
-static inline vec4_t v4_add(vec4_t a, vec4_t b) { return vec4(a.x + b.x, a.y + b.y, a.z + b.z, a.w + b.w); }
-// static inline vec4_t v4_sub(vec4_t a, vec4_t b) { return vec4(a.x - b.x, a.y - b.y); }
-// static inline vec4_t v4_mul(vec4_t a, vec4_t b) { return vec4(a.x * b.x, a.y * b.y); }
-// static inline vec4_t v4_muls(vec4_t v, float f) { return vec4(v.x * f, v.y * f); }
-// static inline vec4_t v4_div(vec4_t a, vec4_t b) { return vec4(a.x / b.x, a.y / b.y); }
-// static inline vec4_t v4_divs(vec4_t v, float f) { return vec4(v.x / f, v.y / f); }
-
-
 //
 // 4x4 matrices
 //
