@@ -12,22 +12,12 @@
 #include "free_glyph.h"
 #include "la.h"
 #include "lib.h"
-#include "tile_glyph.h"
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
 #define SCREEN_WIDTH  800
 #define SCREEN_HEIGHT 600
-
-#define FONT_TILE_FILENAME "charmap-oldschool_white.png"
-#define FONT_WIDTH         128
-#define FONT_HEIGHT        64
-#define FONT_ROWS          7
-#define FONT_COLS          18
-#define FONT_CHAR_WIDTH    (int) (FONT_WIDTH / FONT_COLS)
-#define FONT_CHAR_HEIGHT   (int) (FONT_HEIGHT / FONT_ROWS)
-#define FONT_SCALE         4.0
 
 #define FONT_FREE_FILENAME "fonts/VictorMono-Regular.ttf"
 
@@ -62,52 +52,12 @@ void MessageCallback(
 buffer_t buffer = { 0 };
 v2f_t cam_pos = { 0 }, cam_vel = { 0 };
 
-void tgb_render_cursor(tile_glyph_buffer_t *tgb)
-{
-    v2i_t tile = {
-        .x = buffer_get_cursor_col(&buffer),
-        .y = buffer_get_cursor_row(&buffer),
-    };
-    char c;
-    if (buffer.cursor < buffer.string.length) {
-        c = buffer.string.data[buffer.cursor];
-        c = (c != '\n') ? c : ' ';
-    } else {
-        c = ' ';
-    }
-    tgb_render_text(tgb, &c, 1, v2i(tile.x, -tile.y), v4fs(0.0), v4fs(1.0));
-}
-
 void fgb_render_cursor(free_glyph_buffer_t *fgb)
 {
     (void) fgb;
 }
 
-static tile_glyph_buffer_t tgb = { 0 };
 static free_glyph_buffer_t fgb = { 0 };
-
-void render_tgb(float dt)
-{
-    v2f_t cur_pos = {
-        .x = buffer_get_cursor_col(&buffer),
-        .y = buffer_get_cursor_row(&buffer),
-    };
-    cur_pos = v2f_mul(
-            cur_pos, v2f(FONT_SCALE * FONT_CHAR_WIDTH, FONT_SCALE * FONT_CHAR_HEIGHT));
-    cam_vel = v2f_sub(cur_pos, cam_pos);
-    cam_pos = v2f_add(cam_pos, v2f_mulf(cam_vel, 2.0 * dt));
-
-    glUseProgram(tgb.shader);
-    glUniform2f(tgb.u_camera, cam_pos.x, -cam_pos.y);
-    glUniform1f(tgb.u_time, SDL_GetTicks() / 1000.0);
-    glUniform1f(tgb.u_scale, FONT_SCALE);
-
-    tgb_render_text(
-            &tgb, buffer.string.data, buffer.string.length, v2i(0, 0), v4fs(1.0),
-            v4fs(0.0));
-    tgb_render_cursor(&tgb);
-    tgb_flush(&tgb);
-}
 
 void render_fgb(float dt)
 {
@@ -194,9 +144,6 @@ int main(int argc, char *argv[])
         panic("Could not set pixel sizes: %s\n", FT_Error_String(error));
     }
 
-    tgb_init(
-            &tgb, FONT_TILE_FILENAME, "shaders/tile_glyph.vert",
-            "shaders/tile_glyph.frag");
     fgb_init(&fgb, face, "shaders/free_glyph.vert", "shaders/free_glyph.frag");
 
     bool quit = false;
@@ -214,7 +161,6 @@ int main(int argc, char *argv[])
                         int width, height;
                         SDL_GetWindowSize(window, &width, &height);
                         glViewport(0, 0, width, height);
-                        glUniform2f(tgb.u_resolution, (float) width, (float) height);
                         glUniform2f(fgb.u_resolution, (float) width, (float) height);
                     }
                 } break;
@@ -299,7 +245,6 @@ int main(int argc, char *argv[])
         glClear(GL_COLOR_BUFFER_BIT);
 
         render_fgb(dt);
-        render_tgb(dt);
 
         SDL_GL_SwapWindow(window);
     }
