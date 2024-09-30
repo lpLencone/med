@@ -5,10 +5,13 @@
 #include <GL/glew.h>
 #include <SDL2/SDL.h>
 
+#include <freetype2/ft2build.h>
+#include FT_FREETYPE_H
+
 #include "buffer.h"
+#include "free_glyph.h"
 #include "la.h"
 #include "lib.h"
-#include "shader.h"
 #include "tile_glyph.h"
 
 #define STB_IMAGE_IMPLEMENTATION
@@ -17,14 +20,16 @@
 #define SCREEN_WIDTH  800
 #define SCREEN_HEIGHT 600
 
-#define FONT_FILENAME    "charmap-oldschool_white.png"
-#define FONT_WIDTH       128
-#define FONT_HEIGHT      64
-#define FONT_ROWS        7
-#define FONT_COLS        18
-#define FONT_CHAR_WIDTH  (int) (FONT_WIDTH / FONT_COLS)
-#define FONT_CHAR_HEIGHT (int) (FONT_HEIGHT / FONT_ROWS)
-#define FONT_SCALE       4.0
+#define FONT_TILE_FILENAME "charmap-oldschool_white.png"
+#define FONT_WIDTH         128
+#define FONT_HEIGHT        64
+#define FONT_ROWS          7
+#define FONT_COLS          18
+#define FONT_CHAR_WIDTH    (int) (FONT_WIDTH / FONT_COLS)
+#define FONT_CHAR_HEIGHT   (int) (FONT_HEIGHT / FONT_ROWS)
+#define FONT_SCALE         4.0
+
+#define FONT_FREE_FILENAME "fonts/VictorMono-Regular.ttf"
 
 void scc_(int code, int line)
 {
@@ -54,18 +59,10 @@ void MessageCallback(
             type == GL_DEBUG_TYPE_ERROR ? "GL ERROR" : "GL INFO ", message);
 }
 
-typedef struct {
-    v2f_t pos;
-    v2f_t size;
-    int code;
-    v2f_t fg;
-    v2f_t bg;
-} ftglyph_t;
-
 buffer_t buffer = { 0 };
 v2f_t cam_pos = { 0 }, cam_vel = { 0 };
 
-void render_cursor(tile_glyph_buffer_t *tgb)
+void tgb_render_cursor(tile_glyph_buffer_t *tgb)
 {
     v2i_t tile = {
         .x = buffer_get_cursor_col(&buffer),
@@ -74,16 +71,61 @@ void render_cursor(tile_glyph_buffer_t *tgb)
     char c;
     if (buffer.cursor < buffer.string.length) {
         c = buffer.string.data[buffer.cursor];
-        c = (c != '\n') ? c : ' '; 
+        c = (c != '\n') ? c : ' ';
     } else {
         c = ' ';
     }
-    tgb_render_text(
-            tgb, &c, 1, v2i(tile.x, -tile.y), v4fs(0.0),
-            v4fs(1.0));
+    tgb_render_text(tgb, &c, 1, v2i(tile.x, -tile.y), v4fs(0.0), v4fs(1.0));
 }
 
-static tile_glyph_buffer_t tgb = {0};
+void fgb_render_cursor(free_glyph_buffer_t *fgb)
+{
+    (void) fgb;
+}
+
+static tile_glyph_buffer_t tgb = { 0 };
+static free_glyph_buffer_t fgb = { 0 };
+
+void render_tgb(float dt)
+{
+    v2f_t cur_pos = {
+        .x = buffer_get_cursor_col(&buffer),
+        .y = buffer_get_cursor_row(&buffer),
+    };
+    cur_pos = v2f_mul(
+            cur_pos, v2f(FONT_SCALE * FONT_CHAR_WIDTH, FONT_SCALE * FONT_CHAR_HEIGHT));
+    cam_vel = v2f_sub(cur_pos, cam_pos);
+    cam_pos = v2f_add(cam_pos, v2f_mulf(cam_vel, 2.0 * dt));
+
+    glUseProgram(tgb.shader);
+    glUniform2f(tgb.u_camera, cam_pos.x, -cam_pos.y);
+    glUniform1f(tgb.u_time, SDL_GetTicks() / 1000.0);
+    glUniform1f(tgb.u_scale, FONT_SCALE);
+
+    tgb_render_text(
+            &tgb, buffer.string.data, buffer.string.length, v2i(0, 0), v4fs(1.0),
+            v4fs(0.0));
+    tgb_render_cursor(&tgb);
+    tgb_flush(&tgb);
+}
+
+void render_fgb(float dt)
+{
+    v2f_t cur_pos = fgb_render_text(
+            &fgb, buffer.string.data, buffer.cursor, v2fs(0.0), v4fs(0.0), v4fs(0.0));
+    fgb_flush(&fgb);
+    cam_vel = v2f_sub(cur_pos, cam_pos);
+    cam_pos = v2f_add(cam_pos, v2f_mulf(cam_vel, 2.0 * dt));
+
+    glUseProgram(fgb.shader);
+    glUniform2f(fgb.u_camera, cam_pos.x, cam_pos.y);
+    glUniform1f(fgb.u_time, SDL_GetTicks() / 1000.0);
+
+    fgb_render_text(
+            &fgb, buffer.string.data, buffer.string.length, v2fs(0.0), v4fs(1.0),
+            v4fs(0.0));
+    fgb_flush(&fgb);
+}
 
 int main(int argc, char *argv[])
 {
@@ -134,7 +176,28 @@ int main(int argc, char *argv[])
         }
     }
 
-    tgb_init(&tgb, FONT_FILENAME, "shaders/tile_glyph.vert", "shaders/tile_glyph.frag");
+    FT_Library library = { 0 };
+    FT_Error error = FT_Init_FreeType(&library);
+    if (FT_Err_Ok != error) {
+        panic("Could not initialize the FreeType library: %s\n", FT_Error_String(error));
+    }
+
+    FT_Face face;
+    error = FT_New_Face(library, FONT_FREE_FILENAME, 0, &face);
+    if (FT_Err_Ok != error) {
+        panic("Could not create face: %s\n", FT_Error_String(error));
+    }
+
+    FT_UInt pixel_size = 32;
+    error = FT_Set_Pixel_Sizes(face, 0, pixel_size);
+    if (FT_Err_Ok != error) {
+        panic("Could not set pixel sizes: %s\n", FT_Error_String(error));
+    }
+
+    tgb_init(
+            &tgb, FONT_TILE_FILENAME, "shaders/tile_glyph.vert",
+            "shaders/tile_glyph.frag");
+    fgb_init(&fgb, face, "shaders/free_glyph.vert", "shaders/free_glyph.frag");
 
     bool quit = false;
     float dt, now, last_frame = 0.0;
@@ -152,6 +215,7 @@ int main(int argc, char *argv[])
                         SDL_GetWindowSize(window, &width, &height);
                         glViewport(0, 0, width, height);
                         glUniform2f(tgb.u_resolution, (float) width, (float) height);
+                        glUniform2f(fgb.u_resolution, (float) width, (float) height);
                     }
                 } break;
 
@@ -197,6 +261,18 @@ int main(int argc, char *argv[])
                             }
                         } break;
 
+                        case SDLK_3: {
+                            if (event.key.keysym.mod & KMOD_CTRL) {
+                                buffer_move_beginning_of_line(&buffer);
+                            }
+                        } break;
+
+                        case SDLK_4: {
+                            if (event.key.keysym.mod & KMOD_CTRL) {
+                                buffer_move_end_of_line(&buffer);
+                            }
+                        } break;
+
                         case SDLK_s: {
                             if (event.key.keysym.mod & KMOD_CTRL) {
                                 FILE *fp = fopen(filename, "w");
@@ -209,7 +285,7 @@ int main(int argc, char *argv[])
                                 buffer_save_to_file(&buffer, fp);
                                 fclose(fp);
                             }
-                        }
+                        } break;
                     }
                 } break;
 
@@ -222,26 +298,8 @@ int main(int argc, char *argv[])
         glClearColor(0.0, 0.0, 0.0, 1.0);
         glClear(GL_COLOR_BUFFER_BIT);
 
-        v2f_t cur_pos = {
-            .x = buffer_get_cursor_col(&buffer),
-            .y = buffer_get_cursor_row(&buffer),
-        };
-        cur_pos =
-                v2f_mul(cur_pos,
-                        v2f(FONT_SCALE * FONT_CHAR_WIDTH, FONT_SCALE * FONT_CHAR_HEIGHT));
-        cam_vel = v2f_sub(cur_pos, cam_pos);
-        cam_pos = v2f_add(cam_pos, v2f_mulf(cam_vel, 2.0 * dt));
-
-        glUseProgram(tgb.shader);
-        glUniform2f(tgb.u_camera, cam_pos.x, -cam_pos.y);
-        glUniform1f(tgb.u_time, SDL_GetTicks() / 1000.0);
-        glUniform1f(tgb.u_scale, FONT_SCALE);
-
-        tgb_render_text(&tgb,
-                buffer.string.data, buffer.string.length, v2i(0, 0), v4fs(1.0),
-                v4fs(0.0));
-        render_cursor(&tgb);
-        tgb_flush(&tgb);
+        render_fgb(dt);
+        render_tgb(dt);
 
         SDL_GL_SwapWindow(window);
     }

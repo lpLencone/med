@@ -25,7 +25,7 @@ bool shader_init(GLuint *shader, char const *vert_filename, char const *frag_fil
     glGetShaderiv(vert_shader, GL_COMPILE_STATUS, &status);
     if (status == GL_FALSE) {
         glGetShaderInfoLog(vert_shader, 512, NULL, info_log);
-        fprintf(stderr, "ERROR::SHADER::VERTEX::COMPILATION_FAILED\n\t%shader\n", info_log);
+        fprintf(stderr, "ERROR::SHADER::VERTEX::COMPILATION_FAILED\n\t%s\n", info_log);
         return false;
     }
     str_free(&shader_source);

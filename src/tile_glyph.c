@@ -9,6 +9,21 @@
 static void tgb_push(tile_glyph_buffer_t *tgb, glyph_t glyph);
 static void tgb_sync(tile_glyph_buffer_t *tgb);
 
+enum glyph_attr {
+    GLYPH_ATTR_TILE = 0,
+    GLYPH_ATTR_CH,
+    GLYPH_ATTR_FG,
+    GLYPH_ATTR_BG,
+    GLYPH_ATTR_COUNT,
+};
+
+typedef struct {
+    GLvoid *ptr;
+    GLint size;
+    GLenum type;
+} glyph_attr_t;
+
+
 static glyph_attr_t glyph_attrs[GLYPH_ATTR_COUNT] = {
     [GLYPH_ATTR_TILE]   = {
         .ptr = (GLvoid *) offsetof(glyph_t, tile),

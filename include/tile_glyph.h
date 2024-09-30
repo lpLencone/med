@@ -13,20 +13,6 @@ typedef struct {
     v4f_t bg;
 } glyph_t;
 
-enum glyph_attr {
-    GLYPH_ATTR_TILE = 0,
-    GLYPH_ATTR_CH,
-    GLYPH_ATTR_FG,
-    GLYPH_ATTR_BG,
-    GLYPH_ATTR_COUNT,
-};
-
-typedef struct {
-    GLvoid *ptr;
-    GLint size;
-    GLenum type;
-} glyph_attr_t;
-
 typedef struct {
     GLuint vao;
     GLuint vbo;
