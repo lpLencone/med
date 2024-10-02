@@ -172,7 +172,7 @@ void fgb_flush(free_glyph_buffer_t *fgb)
     fgb->count = 0;
 }
 
-v2f_t fgb_render_text(
+void fgb_render_text(
         free_glyph_buffer_t *fgb, char const *text, size_t text_size, v2f_t pos, v4f_t fg,
         v4f_t bg)
 {
@@ -202,6 +202,26 @@ v2f_t fgb_render_text(
             .bg = bg,
         };
     }
+}
 
+v2f_t fgb_cursor_pos(free_glyph_buffer_t *fgb, char const *text, size_t text_size)
+{
+    v2f_t pos = v2fs(0.0);
+    for (size_t i = 0; i < text_size; i++) {
+        if (text[i] == '\n') {
+            pos.y -= fgb->atlas_h;
+            pos.x = 0;
+            continue;
+        }
+        ftglyph_metrics_t metrics = fgb->metrics[(int) text[i]];
+        pos.x += metrics.ax;
+        pos.y += metrics.ay;
+    }
     return pos;
+}
+
+size_t fgb_char_width(free_glyph_buffer_t *fgb, char c)
+{
+    ftglyph_metrics_t metrics = fgb->metrics[(int) c];
+    return metrics.ax;
 }

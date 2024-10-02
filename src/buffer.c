@@ -128,3 +128,11 @@ size_t buffer_get_cursor_col(buffer_t const *b)
     size_t index = str_find_char_rev(&b->string, '\n', b->cursor);
     return b->cursor - index - (index != 0);
 }
+
+char buffer_get_char(buffer_t const *b)
+{
+    if (b->cursor < b->string.length) {
+        return b->string.data[b->cursor];
+    }
+    return '\0';
+}

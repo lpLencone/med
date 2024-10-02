@@ -9,6 +9,7 @@
 #include FT_FREETYPE_H
 
 #include "buffer.h"
+#include "cursor_renderer.h"
 #include "free_glyph.h"
 #include "la.h"
 #include "lib.h"
@@ -19,7 +20,17 @@
 #define SCREEN_WIDTH  800
 #define SCREEN_HEIGHT 600
 
-#define FONT_FREE_FILENAME "fonts/VictorMono-Regular.ttf"
+#define PIXEL_SIZE 32
+
+// #define FONT_FREE_FILENAME "fonts/VictorMono-Regular.ttf"
+#define FONT_FREE_FILENAME "fonts/Qdbettercomicsans-jEEeG.ttf"
+// #define FONT_FREE_FILENAME "fonts/ttf - Ac (aspect-corrected)/Ac437_IBM_EGA_9x14.ttf"
+// #define FONT_FREE_FILENAME "fonts/ttf - Mx (mixed outline+bitmap)/Mx437_Mindset.ttf"
+// #define FONT_FREE_FILENAME "fonts/ttf - Px (pixel outline)/Px437_STB_AutoEGA_9x14.ttf"
+// #define FONT_FREE_FILENAME "fonts/ttf - Px (pixel outline)/Px437_IBM_EGA_8x8.ttf"
+// #define FONT_FREE_FILENAME "fonts/ttf - Px (pixel
+// outline)/PxPlus_Rainbow100_re_132.ttf"
+// #define FONT_FREE_FILENAME "fonts/ttf - Px (pixel outline)/Px437_Compaq_Port3.ttf"
 
 void scc_(int code, int line)
 {
@@ -58,17 +69,27 @@ void fgb_render_cursor(free_glyph_buffer_t *fgb)
 }
 
 static free_glyph_buffer_t fgb = { 0 };
+static cursor_renderer_t cr = { 0 };
 
 void render_fgb(float dt)
 {
-    v2f_t cur_pos = fgb_render_text(
-            &fgb, buffer.string.data, buffer.cursor, v2fs(0.0), v4fs(0.0), v4fs(0.0));
-    fgb_flush(&fgb);
+    v2f_t cur_pos = fgb_cursor_pos(&fgb, buffer.string.data, buffer.cursor);
+    char c = buffer_get_char(&buffer);
+    size_t cur_width = fgb_char_width(&fgb, (c != '\0' && c != '\n') ? c : ' ');
+
     cam_vel = v2f_sub(cur_pos, cam_pos);
     cam_pos = v2f_add(cam_pos, v2f_mulf(cam_vel, 2.0 * dt));
 
+    glUseProgram(cr.shader);
+    glUniform2f(cr.u_pos, v2(cur_pos));
+    glUniform2f(cr.u_camera, v2(cam_pos));
+    glUniform1f(cr.u_time, SDL_GetTicks() / 1000.0);
+    glUniform2f(cr.u_size, cur_width, fgb.atlas_h);
+
+    cr_render();
+
     glUseProgram(fgb.shader);
-    glUniform2f(fgb.u_camera, cam_pos.x, cam_pos.y);
+    glUniform2f(fgb.u_camera, v2(cam_pos));
     glUniform1f(fgb.u_time, SDL_GetTicks() / 1000.0);
 
     fgb_render_text(
@@ -132,19 +153,23 @@ int main(int argc, char *argv[])
         panic("Could not initialize the FreeType library: %s\n", FT_Error_String(error));
     }
 
-    FT_Face face;
+    FT_Face face = { 0 };
     error = FT_New_Face(library, FONT_FREE_FILENAME, 0, &face);
-    if (FT_Err_Ok != error) {
-        panic("Could not create face: %s\n", FT_Error_String(error));
+    if (error == FT_Err_Cannot_Open_Resource) {
+        panic("Could not open font filename: " FONT_FREE_FILENAME "\n");
+    } else if (error != FT_Err_Ok) {
+        panic("Could not create face: %d - %s\n", error, FT_Error_String(error));
     }
 
-    FT_UInt pixel_size = 32;
+    FT_UInt pixel_size = PIXEL_SIZE;
     error = FT_Set_Pixel_Sizes(face, 0, pixel_size);
     if (FT_Err_Ok != error) {
         panic("Could not set pixel sizes: %s\n", FT_Error_String(error));
     }
 
     fgb_init(&fgb, face, "shaders/free_glyph.vert", "shaders/free_glyph.frag");
+    cr = cr_init("shaders/cursor.vert", "shaders/cursor.frag");
+    size_t cur_last_pos = buffer.cursor;
 
     bool quit = false;
     float dt, now, last_frame = 0.0;
@@ -152,6 +177,12 @@ int main(int argc, char *argv[])
         now = SDL_GetTicks() / 1000.0;
         dt = now - last_frame;
         last_frame = now;
+
+        if (buffer.cursor != cur_last_pos) {
+            cur_last_pos = buffer.cursor;
+            glUseProgram(cr.shader);
+            glUniform1f(cr.u_last_moved, now);
+        }
 
         SDL_Event event = { 0 };
         while (SDL_PollEvent(&event)) {
@@ -161,7 +192,10 @@ int main(int argc, char *argv[])
                         int width, height;
                         SDL_GetWindowSize(window, &width, &height);
                         glViewport(0, 0, width, height);
+                        glUseProgram(fgb.shader);
                         glUniform2f(fgb.u_resolution, (float) width, (float) height);
+                        glUseProgram(cr.shader);
+                        glUniform2f(cr.u_resolution, (float) width, (float) height);
                     }
                 } break;
 

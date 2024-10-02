@@ -54,8 +54,13 @@ void fgb_init(
 
 void fgb_flush(free_glyph_buffer_t *fgb);
 
-v2f_t fgb_render_text(
+void fgb_render_text(
         free_glyph_buffer_t *fgb, char const *text, size_t text_size, v2f_t pos, v4f_t fg,
         v4f_t bg);
+
+v2f_t fgb_cursor_pos(
+        free_glyph_buffer_t *fgb, char const *text, size_t text_size);
+
+size_t fgb_char_width(free_glyph_buffer_t *fgb, char c);
 
 #endif // FREE_GLYPH_H_
