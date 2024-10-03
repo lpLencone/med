@@ -1,5 +1,6 @@
-vec2 project_point(vec2 point)
+vec2 project(vec2 point, float time)
 {
-    return 2.0 * (point - u_camera) / u_resolution;
+    float scale = 1.0 + (sin(time) + 1.0) / 2.0;
+    return 2.0 * (point - u_camera) * scale / u_resolution;
 }
 

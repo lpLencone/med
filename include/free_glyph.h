@@ -35,6 +35,7 @@ typedef struct {
 
     unsigned int atlas_w;
     unsigned int atlas_h;
+    unsigned int atlas_low;
 
     GLint u_time;
     GLint u_resolution;

@@ -169,10 +169,6 @@ FILE *sv_fopen(strview_t sv_filename, char const *mode)
     char *filename = malloc(sv_filename.length + 1);
     memcpy(filename, sv_filename.data, sv_filename.length);
     filename[sv_filename.length] = '\0';
-    for (size_t i = 0; i < sv_filename.length; i++) {
-        printf("(%c,%d) " ,filename[i], filename[i]);
-    }
-    printf("\n");
     FILE *fp = fopen(filename, mode);
     free(filename);
     return fp;

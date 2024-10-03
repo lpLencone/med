@@ -74,6 +74,7 @@ void fgb_init(
     {
         fgb->atlas_w = 0;
         fgb->atlas_h = 0;
+        fgb->atlas_low = 0;
 
         FT_Error error;
         for (int i = 32; i < 128; i++) {
@@ -81,9 +82,14 @@ void fgb_init(
                 eprintln("Error loading char %c: %s\n", i, FT_Error_String(error));
                 continue;
             }
-            fgb->atlas_w += face->glyph->bitmap.width;
-            if (fgb->atlas_h < face->glyph->bitmap.rows) {
-                fgb->atlas_h = face->glyph->bitmap.rows;
+            FT_GlyphSlot gs = face->glyph;
+            fgb->atlas_w += gs->bitmap.width;
+            if (fgb->atlas_h < gs->bitmap.rows) {
+                fgb->atlas_h = gs->bitmap.rows;
+            }
+            int low = (int) gs->bitmap.rows - gs->bitmap_top;
+            if ((int) fgb->atlas_low < low) {
+                fgb->atlas_low = low;
             }
         }
 
@@ -106,12 +112,13 @@ void fgb_init(
 
         int x = 0;
         for (int i = 32; i < 128; i++) {
+
             if ((error = FT_Load_Char(face, i, FT_LOAD_RENDER)) != FT_Err_Ok) {
                 panic("Error loading char %c: %s\n", i, FT_Error_String(error));
             }
 
-            if ((error = FT_Render_Glyph(face->glyph, FT_RENDER_MODE_NORMAL)) !=
-                FT_Err_Ok) {
+            FT_GlyphSlot gs = face->glyph;
+            if ((error = FT_Render_Glyph(gs, FT_RENDER_MODE_NORMAL)) != FT_Err_Ok) {
                 panic("Error rendering glyph: %s\n", FT_Error_String(error));
             }
 
@@ -120,13 +127,14 @@ void fgb_init(
                     face->glyph->bitmap.rows, GL_RED, GL_UNSIGNED_BYTE,
                     face->glyph->bitmap.buffer);
 
-            fgb->metrics[i].ax = face->glyph->advance.x >> 6;
-            fgb->metrics[i].ay = face->glyph->advance.y >> 6;
-            fgb->metrics[i].bw = face->glyph->bitmap.width;
-            fgb->metrics[i].bh = face->glyph->bitmap.rows;
-            fgb->metrics[i].bl = face->glyph->bitmap_left;
-            fgb->metrics[i].bt = face->glyph->bitmap_top;
-            fgb->metrics[i].tx = (float) x / fgb->atlas_w;
+            ftglyph_metrics_t *gm = fgb->metrics + i;
+            gm->ax = gs->advance.x >> 6;
+            gm->ay = gs->advance.y >> 6;
+            gm->bw = gs->bitmap.width;
+            gm->bh = gs->bitmap.rows;
+            gm->bl = gs->bitmap_left;
+            gm->bt = gs->bitmap_top;
+            gm->tx = (float) x / fgb->atlas_w;
 
             x += face->glyph->bitmap.width;
         }

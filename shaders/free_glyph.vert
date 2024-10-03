@@ -19,7 +19,7 @@ out vec2 v_uv;
 out vec2 v_uv_pos;
 out vec2 v_uv_size;
 
-#include "shaders/project.glsl"
+#use "shaders/project.glsl"
 
 void main() {
     v_uv_pos = l_uv_pos;
@@ -28,5 +28,5 @@ void main() {
     v_bg = l_bg;
     v_uv = vec2(float(gl_VertexID & 1), float((gl_VertexID >> 1) & 1));
 
-    gl_Position = vec4(project_point(v_uv * l_size + l_pos), 0.0, 1.0);
+    gl_Position = vec4(project(v_uv * l_size + l_pos, u_time), 0.0, 1.0);
 }

@@ -40,7 +40,7 @@ bool glslink_program(GLuint *program, slice_t vert_filenames, slice_t frag_filen
 static bool shader_source_link(str_t *source_str)
 {
     strview_t source = sv_from_str(source_str);
-    while (sv_token_subcstr(&source, "#include", NULL)) {
+    while (sv_token_subcstr(&source, "#use", NULL)) {
         strview_t directive_line = { 0 }, filename = { 0 };
         sv_token_cspn_consume(&source, "\n", &directive_line);
         strview_t directive_line_copy = directive_line;
@@ -64,9 +64,11 @@ static bool shader_source_link(str_t *source_str)
         str_insert(
                 source_str, included_source.data, included_source.length, include_index);
 
+        source.length += included_source.length;
+
         str_free(&included_source);
     }
-    printf("%.*s\n", (int) source_str->length, source_str->data);
+
     return true;
 }
 

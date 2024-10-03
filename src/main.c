@@ -63,11 +63,6 @@ void MessageCallback(
 buffer_t buffer = { 0 };
 v2f_t cam_pos = { 0 }, cam_vel = { 0 };
 
-void fgb_render_cursor(free_glyph_buffer_t *fgb)
-{
-    (void) fgb;
-}
-
 static free_glyph_buffer_t fgb = { 0 };
 static cursor_renderer_t cr = { 0 };
 
@@ -77,6 +72,7 @@ void render_fgb(float dt)
     char c = buffer_get_char(&buffer);
     size_t cur_width = fgb_char_width(&fgb, (c != '\0' && c != '\n') ? c : ' ');
 
+    cur_pos.y -= fgb.atlas_low;
     cam_vel = v2f_sub(cur_pos, cam_pos);
     cam_pos = v2f_add(cam_pos, v2f_mulf(cam_vel, 2.0 * dt));
 
