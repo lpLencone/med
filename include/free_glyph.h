@@ -2,7 +2,7 @@
 #define FREE_GLYPH_H_
 
 #include "la.h"
-#include "shader.h"
+#include "glslinker.h"
 
 #include <GL/glew.h>
 #include <freetype2/ft2build.h>

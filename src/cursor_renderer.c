@@ -4,13 +4,13 @@
 #include <stdlib.h>
 
 #include "lib.h"
-#include "shader.h"
+#include "glslinker.h"
 
-cursor_renderer_t
-cr_init(char const *vert_filename, char const *frag_filename)
+cursor_renderer_t cr_init(char const *vert_filename, char const *frag_filename)
 {
     GLuint shader;
-    if (!shader_init(&shader, vert_filename, frag_filename)) {
+    if (!glslink_program(
+                &shader, slice_from(&vert_filename, 1), slice_from(&frag_filename, 1))) {
         panic("Could not initialize cursor shader.");
     }
 

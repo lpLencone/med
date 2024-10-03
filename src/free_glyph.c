@@ -63,7 +63,9 @@ void fgb_init(
 {
     fgb->count = 0;
 
-    if (!shader_init(&fgb->shader, vert_filename, frag_filename)) {
+    if (!glslink_program(
+                &fgb->shader, slice_from(&vert_filename, 1),
+                slice_from(&frag_filename, 1))) {
         panic("Could not load ftglyph shaders.");
     }
     glUseProgram(fgb->shader);

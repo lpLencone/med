@@ -56,7 +56,7 @@ size_t str_find_char_rev(str_t const *s, char c, size_t index)
     return index;
 }
 
-size_t str_count_rev(const str_t *s, char c, size_t index)
+size_t str_count_rev(str_t const *s, char c, size_t index)
 {
     assert(index <= s->length);
     size_t count = 0;
@@ -99,4 +99,81 @@ static void str_grow(str_t *s, size_t size)
         s->capacity = cap;
         s->data = realloc(s->data, s->capacity);
     }
+}
+
+// String View
+
+strview_t sv_from_str(str_t const *str)
+{
+    return (strview_t) {
+        .data = str->data,
+        .length = str->length,
+    };
+}
+
+size_t sv_cspn(strview_t sv, char const *reject)
+{
+    size_t length = 0;
+    while (length < sv.length) {
+        char *c = strchr(reject, sv.data[length]);
+        if (c != NULL) {
+            break;
+        }
+        length++;
+    }
+    return length;
+}
+
+bool sv_token_subcstr(strview_t *sv, char const *sub, strview_t *out)
+{
+    size_t sublen = strlen(sub);
+    for (size_t i = 0; i + sublen < sv->length; i++) {
+        if (strncmp(sv->data + i, sub, sublen) == 0) {
+            if (out != NULL) {
+                out->data = sv->data;
+                out->length = i;
+            }
+            sv->data += i;
+            sv->length -= i;
+            return true;
+        }
+    }
+    return false;
+}
+
+bool sv_token_cspn(strview_t *sv, char const *reject, strview_t *out)
+{
+    size_t length = sv_cspn(*sv, reject);
+    if (out != NULL) {
+        out->data = sv->data;
+        out->length = length;
+    }
+    sv->data += length;
+    sv->length -= length;
+    return sv->length > 0;
+}
+
+bool sv_token_cspn_consume(strview_t *sv, char const *reject, strview_t *out)
+{
+    if (!sv_token_cspn(sv, reject, out)) {
+        return false;
+    }
+    size_t length = min(sv->length, strspn(sv->data, reject));
+    sv->data += length;
+    sv->length -= length;
+    return true;
+}
+
+FILE *sv_fopen(strview_t sv_filename, char const *mode)
+{
+    char *filename = malloc(sv_filename.length + 1);
+    memcpy(filename, sv_filename.data, sv_filename.length);
+    filename[sv_filename.length] = '\0';
+    for (size_t i = 0; i < sv_filename.length; i++) {
+        printf("(%c,%d) " ,filename[i], filename[i]);
+    }
+    printf("\n");
+    FILE *fp = fopen(filename, mode);
+    free(filename);
+    return fp;
 }

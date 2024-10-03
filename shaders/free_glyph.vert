@@ -19,10 +19,7 @@ out vec2 v_uv;
 out vec2 v_uv_pos;
 out vec2 v_uv_size;
 
-vec2 project_point(vec2 point)
-{
-    return 2.0 * (point - u_camera) / u_resolution;
-}
+#include "shaders/project.glsl"
 
 void main() {
     v_uv_pos = l_uv_pos;
