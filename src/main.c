@@ -20,12 +20,12 @@
 #define SCREEN_WIDTH  800
 #define SCREEN_HEIGHT 600
 
-#define PIXEL_SIZE 32
+#define PIXEL_SIZE 128
 
-#define FONT_FREE_FILENAME "fonts/VictorMono-Regular.ttf"
+// #define FONT_FREE_FILENAME "fonts/VictorMono-Regular.ttf"
 // #define FONT_FREE_FILENAME "fonts/Qdbettercomicsans-jEEeG.ttf"
 // #define FONT_FREE_FILENAME "fonts/ttf - Mx (mixed outline+bitmap)/Mx437_Mindset.ttf"
-// #define FONT_FREE_FILENAME "fonts/ttf - Px (pixel outline)/Px437_IBM_VGA_8x16.ttf"
+#define FONT_FREE_FILENAME "fonts/ttf - Px (pixel outline)/Px437_IBM_VGA_8x16.ttf"
 // #define FONT_FREE_FILENAME "fonts/ttf - Px (pixel outline)/Px437_IBM_EGA_8x8.ttf"
 // #define FONT_FREE_FILENAME "fonts/ttf - Px (pixel outline)/Px437_Compaq_Port3.ttf"
 // #define FONT_FREE_FILENAME "fonts/ttf - Px (pixel
@@ -60,37 +60,38 @@ void MessageCallback(
 }
 
 buffer_t buffer = { 0 };
-v2f_t camera_pos = { 0 }, camera_vel = { 0 };
+v2f_t camera_pos = { 0 };
 v2f_t resolution = { SCREEN_WIDTH, SCREEN_HEIGHT };
-float g_scale = 5.0;
-float g_scale_vel = 0.0;
-float g_scale_target = 5.0;
-const float MIN_SCALE = 1.0;
+float const MAX_SCALE = 1.0;
+float const MIN_SCALE = 0.2;
+float g_scale = MAX_SCALE;
 
 static free_glyph_buffer_t fgb = { 0 };
 static cursor_renderer_t cr = { 0 };
 
 void render_fgb(float dt)
 {
+    size_t line_size = fgb.atlas_h * g_scale;
+    int num_lines_displayed = resolution.y / line_size;
+    size_t line_start =
+            max((int) buffer_get_cursor_row(&buffer) - (num_lines_displayed / 2), 0);
+    size_t widest_line_width = fgb_get_widest_line_width(
+            &fgb, buffer.string.data, buffer.string.length, line_start,
+            num_lines_displayed);
+    float g_scale_target =
+            max(MIN_SCALE, min(MAX_SCALE, 0.5 * resolution.x / widest_line_width));
+    float g_scale_vel = g_scale_target - g_scale;
+    g_scale += g_scale_vel * 2.0 * dt;
+
     v2f_t cur_pos = fgb_cursor_pos(&fgb, buffer.string.data, buffer.cursor);
     char c = buffer_get_char(&buffer);
     size_t cur_width = fgb_char_width(&fgb, (c != '\0' && c != '\n') ? c : ' ');
     v2f_t cur_size = v2f(cur_width, fgb.atlas_h);
-
     cur_pos.y -= fgb.atlas_low;
-    camera_vel = v2f_sub(v2f_add(cur_pos, v2f_divf(cur_size, 2.0)), camera_pos);
-    camera_pos = v2f_add(camera_pos, v2f_mulf(camera_vel, 2.0 * dt));
 
-    size_t line_size = fgb.atlas_h * g_scale;
-    int num_lines_displayed = ceilf(resolution.y / line_size);
-    size_t line_start =
-            max((int) buffer_get_cursor_row(&buffer) - (num_lines_displayed / 2), 0);
-    size_t widest_line_width = g_scale * fgb_get_widest_line_width(
-            &fgb, buffer.string.data, buffer.string.length, line_start,
-            num_lines_displayed);
-    g_scale_target = max(0.5, min(5.0, g_scale * 400.0 / widest_line_width));
-    g_scale_vel = g_scale_target - g_scale;
-    g_scale += g_scale_vel * 2.0 * dt;
+    v2f_t camera_target = v2f(widest_line_width / 2.0, cur_pos.y + cur_size.y / 2.0);
+    v2f_t camera_vel = v2f_sub(camera_target, camera_pos);
+    camera_pos = v2f_add(camera_pos, v2f_mulf(camera_vel, 2.0 * dt));
 
     glUseProgram(cr.shader);
     glUniform2f(cr.u[CRU_POS], v2(cur_pos));

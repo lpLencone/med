@@ -84,7 +84,7 @@ v2f_t fgb_cursor_pos(free_glyph_buffer_t *fgb, char const *text, size_t text_siz
     return pos;
 }
 
-size_t fgb_get_widest_line_width(
+float fgb_get_widest_line_width(
         free_glyph_buffer_t *fgb, char const *text, size_t text_size, size_t line_start,
         size_t line_count)
 {
@@ -95,8 +95,8 @@ size_t fgb_get_widest_line_width(
             line++;
         }
     }
-    size_t width = 0;
-    size_t widest_width = 0;
+    float width = 0;
+    float widest_width = 0;
     for (; cursor < text_size && line < line_start + line_count; cursor++) {
         if (text[cursor] == '\n') {
             line++;
@@ -111,7 +111,7 @@ size_t fgb_get_widest_line_width(
     return widest_width;
 }
 
-size_t fgb_char_width(free_glyph_buffer_t *fgb, char c)
+float fgb_char_width(free_glyph_buffer_t *fgb, char c)
 {
     ftglyph_metrics_t metrics = fgb->metrics[(int) c];
     return metrics.ax;
