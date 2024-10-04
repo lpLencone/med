@@ -66,6 +66,10 @@ void fgb_render_text(
 
 v2f_t fgb_cursor_pos(free_glyph_buffer_t *fgb, char const *text, size_t text_size);
 
+size_t fgb_get_widest_line_width(
+        free_glyph_buffer_t *fgb, char const *text, size_t text_size, size_t line_start,
+        size_t line_count);
+
 size_t fgb_char_width(free_glyph_buffer_t *fgb, char c);
 
 #endif // FREE_GLYPH_H_
