@@ -10,7 +10,7 @@
 
 #include "buffer.h"
 #include "cursor_renderer.h"
-#include "free_glyph.h"
+#include "freetype_renderer.h"
 #include "la.h"
 #include "lib.h"
 
@@ -66,20 +66,19 @@ float const MAX_SCALE = 1.0;
 float const MIN_SCALE = 0.25;
 float g_scale = MAX_SCALE;
 
-static free_glyph_buffer_t fgb = { 0 };
+static ft_renderer_t ftr = { 0 };
 static cursor_renderer_t cr = { 0 };
 
-void render_fgb(float dt)
+void render_ftr(float dt)
 {
     float widest_line_width = 0.0;
-    size_t cur_render_start, cur_render_size;
     {
-        size_t line_size = fgb.atlas_h * g_scale;
+        size_t line_size = ftr.atlas_h * g_scale;
         size_t lines_count = resolution.y / line_size;
         size_t line_start =
                 max((int) buffer_get_cursor_row(&buffer) - (int) (lines_count / 2), 0);
-        widest_line_width = fgb_get_widest_line_width(
-                &fgb, buffer.string.data, buffer.string.length, line_start, lines_count);
+        widest_line_width = ftr_get_widest_line_width(
+                &ftr, buffer.string.data, buffer.string.length, line_start, lines_count);
         float g_scale_target =
                 max(MIN_SCALE, min(MAX_SCALE, 0.6 * resolution.x / widest_line_width));
         float g_scale_vel = g_scale_target - g_scale;
@@ -88,11 +87,11 @@ void render_fgb(float dt)
 
     v2f_t cur_pos = { 0 }, cur_size = { 0 };
     {
-        cur_pos = fgb_cursor_pos(&fgb, buffer.string.data, buffer.cursor);
+        cur_pos = ftr_cursor_pos(&ftr, buffer.string.data, buffer.cursor);
         char c = buffer_get_char(&buffer);
-        float cur_width = fgb_char_width(&fgb, (c != '\0' && c != '\n') ? c : ' ');
-        cur_size = v2f(cur_width, fgb.atlas_h);
-        cur_pos.y -= fgb.atlas_low;
+        float cur_width = ftr_char_width(&ftr, (c != '\0' && c != '\n') ? c : ' ');
+        cur_size = v2f(cur_width, ftr.atlas_h);
+        cur_pos.y -= ftr.atlas_low;
     }
 
     {
@@ -124,15 +123,15 @@ void render_fgb(float dt)
 
     cr_render();
 
-    glUseProgram(fgb.shader);
-    glUniform2f(fgb.u[FTU_CAMERA], v2(camera_pos));
-    glUniform1f(fgb.u[FTU_TIME], SDL_GetTicks() / 1000.0);
-    glUniform1f(fgb.u[FTU_SCALE], g_scale);
+    glUseProgram(ftr.shader);
+    glUniform2f(ftr.u[FTU_CAMERA], v2(camera_pos));
+    glUniform1f(ftr.u[FTU_TIME], SDL_GetTicks() / 1000.0);
+    glUniform1f(ftr.u[FTU_SCALE], g_scale);
 
-    fgb_render_text(
-            &fgb, buffer.string.data, buffer.string.length, v2fs(0.0), v4fs(1.0),
+    ftr_render_text(
+            &ftr, buffer.string.data, buffer.string.length, v2fs(0.0), v4fs(1.0),
             v4fs(0.0));
-    fgb_flush(&fgb);
+    ftr_flush(&ftr);
 }
 
 int main(int argc, char *argv[])
@@ -204,7 +203,7 @@ int main(int argc, char *argv[])
         panic("Could not set pixel sizes: %s\n", FT_Error_String(error));
     }
 
-    fgb_init(&fgb, face, "shaders/free_glyph.vert", "shaders/free_glyph.frag");
+    ftr_init(&ftr, face, "shaders/free_glyph.vert", "shaders/free_glyph.frag");
     cr = cr_init("shaders/cursor.vert", "shaders/cursor.frag");
     size_t cur_last_pos = buffer.cursor;
 
@@ -229,8 +228,8 @@ int main(int argc, char *argv[])
                         int width, height;
                         SDL_GetWindowSize(window, &width, &height);
                         glViewport(0, 0, width, height);
-                        glUseProgram(fgb.shader);
-                        glUniform2f(fgb.u[FTU_RESOLUTION], (float) width, (float) height);
+                        glUseProgram(ftr.shader);
+                        glUniform2f(ftr.u[FTU_RESOLUTION], (float) width, (float) height);
                         glUseProgram(cr.shader);
                         glUniform2f(cr.u[CRU_RESOLUTION], (float) width, (float) height);
                         resolution = v2f(width, height);
@@ -316,7 +315,7 @@ int main(int argc, char *argv[])
         glClearColor(0.0, 0.0, 0.0, 1.0);
         glClear(GL_COLOR_BUFFER_BIT);
 
-        render_fgb(dt);
+        render_ftr(dt);
 
         SDL_GL_SwapWindow(window);
     }

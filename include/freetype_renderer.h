@@ -1,5 +1,5 @@
-#ifndef FREE_GLYPH_H_
-#define FREE_GLYPH_H_
+#ifndef FREETYPE_RENDERER_H_
+#define FREETYPE_RENDERER_H_
 
 #include "glslinker.h"
 #include "la.h"
@@ -8,7 +8,7 @@
 #include <freetype2/ft2build.h>
 #include FT_FREETYPE_H
 
-enum ftuniform {
+enum ft_uniform {
     FTU_TIME,
     FTU_RESOLUTION,
     FTU_CAMERA,
@@ -23,7 +23,7 @@ typedef struct {
     v2f_t uv_size;
     v4f_t fg;
     v4f_t bg;
-} ftglyph_t;
+} ft_glyph_t;
 
 typedef struct {
     float ax; // advance.x
@@ -33,7 +33,7 @@ typedef struct {
     float bl; // bitmap_left;
     float bt; // bitmap_top;
     float tx; // x offset of glyph in texture coordinates
-} ftglyph_metrics_t;
+} ft_glyph_metrics_t;
 
 typedef struct {
     GLuint vao;
@@ -48,28 +48,28 @@ typedef struct {
     GLint u[FTU_COUNT];
 
 #define GLYPH_BUFFER_CAP 1024 * 1024
-    ftglyph_t buffer[GLYPH_BUFFER_CAP];
+    ft_glyph_t buffer[GLYPH_BUFFER_CAP];
     size_t count;
 
-    ftglyph_metrics_t metrics[128];
-} free_glyph_buffer_t;
+    ft_glyph_metrics_t metrics[128];
+} ft_renderer_t;
 
-void fgb_init(
-        free_glyph_buffer_t *fgb, FT_Face face, char const *vert_filename,
+void ftr_init(
+        ft_renderer_t *ftr, FT_Face face, char const *vert_filename,
         char const *frag_filename);
 
-void fgb_flush(free_glyph_buffer_t *fgb);
+void ftr_flush(ft_renderer_t *ftr);
 
-void fgb_render_text(
-        free_glyph_buffer_t *fgb, char const *text, size_t text_size, v2f_t pos, v4f_t fg,
+void ftr_render_text(
+        ft_renderer_t *ftr, char const *text, size_t text_size, v2f_t pos, v4f_t fg,
         v4f_t bg);
 
-v2f_t fgb_cursor_pos(free_glyph_buffer_t *fgb, char const *text, size_t text_size);
+v2f_t ftr_cursor_pos(ft_renderer_t *ftr, char const *text, size_t text_size);
 
-float fgb_get_widest_line_width(
-        free_glyph_buffer_t *fgb, char const *text, size_t text_size, size_t line_start,
+float ftr_get_widest_line_width(
+        ft_renderer_t *ftr, char const *text, size_t text_size, size_t line_start,
         size_t line_count);
 
-float fgb_char_width(free_glyph_buffer_t *fgb, char c);
+float ftr_char_width(ft_renderer_t *ftr, char c);
 
-#endif // FREE_GLYPH_H_
+#endif // FREETYPE_RENDERER_H_

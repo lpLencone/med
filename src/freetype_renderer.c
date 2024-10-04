@@ -1,4 +1,4 @@
-#include "free_glyph.h"
+#include "freetype_renderer.h"
 
 #include <assert.h>
 #include <stddef.h>
@@ -6,48 +6,48 @@
 #include "lib.h"
 #include "stb_image.h"
 
-static void fgb_init_texture_atlas(free_glyph_buffer_t *fgb, FT_Face face);
-static void fgb_init_buffers(free_glyph_buffer_t *fgb);
-static void fgb_get_uniform_locations(GLuint program, GLint locations[FTU_COUNT]);
+static void ftr_init_texture_atlas(ft_renderer_t *ftr, FT_Face face);
+static void ftr_init_buffers(ft_renderer_t *ftr);
+static void ftr_get_uniform_locations(GLuint program, GLint locations[FTU_COUNT]);
 
-void fgb_init(
-        free_glyph_buffer_t *fgb, FT_Face face, char const *vert_filename,
+void ftr_init(
+        ft_renderer_t *ftr, FT_Face face, char const *vert_filename,
         char const *frag_filename)
 {
-    fgb->count = 0;
+    ftr->count = 0;
 
     if (!glslink_program(
-                &fgb->shader,
+                &ftr->shader,
                 slice_from((char const *[]) { vert_filename, "shaders/project.glsl" }, 2),
                 slice_from(&frag_filename, 1))) {
-        panic("Could not load ftglyph shaders.");
+        panic("Could not load freetype renderer shaders.");
     }
-    glUseProgram(fgb->shader);
+    glUseProgram(ftr->shader);
 
-    fgb_init_texture_atlas(fgb, face);
-    fgb_init_buffers(fgb);
-    fgb_get_uniform_locations(fgb->shader, fgb->u);
+    ftr_init_texture_atlas(ftr, face);
+    ftr_init_buffers(ftr);
+    ftr_get_uniform_locations(ftr->shader, ftr->u);
 }
 
-void fgb_flush(free_glyph_buffer_t *fgb)
+void ftr_flush(ft_renderer_t *ftr)
 {
-    glBufferSubData(GL_ARRAY_BUFFER, 0, fgb->count * sizeof *fgb->buffer, fgb->buffer);
-    glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, (GLsizei) fgb->count);
-    fgb->count = 0;
+    glBufferSubData(GL_ARRAY_BUFFER, 0, ftr->count * sizeof *ftr->buffer, ftr->buffer);
+    glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, (GLsizei) ftr->count);
+    ftr->count = 0;
 }
 
-void fgb_render_text(
-        free_glyph_buffer_t *fgb, char const *text, size_t text_size, v2f_t pos, v4f_t fg,
+void ftr_render_text(
+        ft_renderer_t *ftr, char const *text, size_t text_size, v2f_t pos, v4f_t fg,
         v4f_t bg)
 {
     for (size_t i = 0; i < text_size; i++) {
         if (text[i] == '\n') {
-            pos.y -= fgb->atlas_h;
+            pos.y -= ftr->atlas_h;
             pos.x = 0;
             continue;
         }
 
-        ftglyph_metrics_t metrics = fgb->metrics[(int) text[i]];
+        ft_glyph_metrics_t metrics = ftr->metrics[(int) text[i]];
         float x2 = metrics.bl + pos.x;
         float y2 = -metrics.bt - pos.y;
         float w = metrics.bw;
@@ -56,36 +56,36 @@ void fgb_render_text(
         pos.x += metrics.ax;
         pos.y += metrics.ay;
 
-        assert(fgb->count < GLYPH_BUFFER_CAP);
-        fgb->buffer[fgb->count++] = (ftglyph_t) {
+        assert(ftr->count < GLYPH_BUFFER_CAP);
+        ftr->buffer[ftr->count++] = (ft_glyph_t) {
             .pos = v2f(x2, -y2),
             .size = v2f(w, -h),
             .uv_pos = v2f(metrics.tx, 0.0),
-            .uv_size = v2f(metrics.bw / fgb->atlas_w, metrics.bh / fgb->atlas_h),
+            .uv_size = v2f(metrics.bw / ftr->atlas_w, metrics.bh / ftr->atlas_h),
             .fg = fg,
             .bg = bg,
         };
     }
 }
 
-v2f_t fgb_cursor_pos(free_glyph_buffer_t *fgb, char const *text, size_t text_size)
+v2f_t ftr_cursor_pos(ft_renderer_t *ftr, char const *text, size_t text_size)
 {
     v2f_t pos = v2fs(0.0);
     for (size_t i = 0; i < text_size; i++) {
         if (text[i] == '\n') {
-            pos.y -= fgb->atlas_h;
+            pos.y -= ftr->atlas_h;
             pos.x = 0;
             continue;
         }
-        ftglyph_metrics_t metrics = fgb->metrics[(int) text[i]];
+        ft_glyph_metrics_t metrics = ftr->metrics[(int) text[i]];
         pos.x += metrics.ax;
         pos.y += metrics.ay;
     }
     return pos;
 }
 
-float fgb_get_widest_line_width(
-        free_glyph_buffer_t *fgb, char const *text, size_t text_size, size_t line_start,
+float ftr_get_widest_line_width(
+        ft_renderer_t *ftr, char const *text, size_t text_size, size_t line_start,
         size_t line_count)
 {
     size_t line;
@@ -103,25 +103,25 @@ float fgb_get_widest_line_width(
             width = 0;
             continue;
         }
-        width += fgb_char_width(fgb, text[cursor]);
+        width += ftr_char_width(ftr, text[cursor]);
         if (width > widest_width) {
             widest_width = width;
         }
-    } 
+    }
     return widest_width;
 }
 
-float fgb_char_width(free_glyph_buffer_t *fgb, char c)
+float ftr_char_width(ft_renderer_t *ftr, char c)
 {
-    ftglyph_metrics_t metrics = fgb->metrics[(int) c];
+    ft_glyph_metrics_t metrics = ftr->metrics[(int) c];
     return metrics.ax;
 }
 
-static void fgb_init_texture_atlas(free_glyph_buffer_t *fgb, FT_Face face)
+static void ftr_init_texture_atlas(ft_renderer_t *ftr, FT_Face face)
 {
-    fgb->atlas_w = 0;
-    fgb->atlas_h = 0;
-    fgb->atlas_low = 0;
+    ftr->atlas_w = 0;
+    ftr->atlas_h = 0;
+    ftr->atlas_low = 0;
 
     FT_Error error;
     for (int i = 32; i < 128; i++) {
@@ -130,19 +130,19 @@ static void fgb_init_texture_atlas(free_glyph_buffer_t *fgb, FT_Face face)
             continue;
         }
         FT_GlyphSlot gs = face->glyph;
-        fgb->atlas_w += gs->bitmap.width;
-        if (fgb->atlas_h < gs->bitmap.rows) {
-            fgb->atlas_h = gs->bitmap.rows;
+        ftr->atlas_w += gs->bitmap.width;
+        if (ftr->atlas_h < gs->bitmap.rows) {
+            ftr->atlas_h = gs->bitmap.rows;
         }
         int low = (int) gs->bitmap.rows - gs->bitmap_top;
-        if ((int) fgb->atlas_low < low) {
-            fgb->atlas_low = low;
+        if ((int) ftr->atlas_low < low) {
+            ftr->atlas_low = low;
         }
     }
 
     glActiveTexture(GL_TEXTURE0);
-    glGenTextures(1, &fgb->atlas);
-    glBindTexture(GL_TEXTURE_2D, fgb->atlas);
+    glGenTextures(1, &ftr->atlas);
+    glBindTexture(GL_TEXTURE_2D, ftr->atlas);
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -151,7 +151,7 @@ static void fgb_init_texture_atlas(free_glyph_buffer_t *fgb, FT_Face face)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
     glTexImage2D(
-            GL_TEXTURE_2D, 0, GL_RED, (GLsizei) fgb->atlas_w, (GLsizei) fgb->atlas_h, 0,
+            GL_TEXTURE_2D, 0, GL_RED, (GLsizei) ftr->atlas_w, (GLsizei) ftr->atlas_h, 0,
             GL_RED, GL_UNSIGNED_BYTE,
             NULL // A null pointer is used to tell OpenGL that  the contents of the
                  // texture will be provided later.
@@ -174,14 +174,14 @@ static void fgb_init_texture_atlas(free_glyph_buffer_t *fgb, FT_Face face)
                 face->glyph->bitmap.rows, GL_RED, GL_UNSIGNED_BYTE,
                 face->glyph->bitmap.buffer);
 
-        ftglyph_metrics_t *gm = fgb->metrics + i;
+        ft_glyph_metrics_t *gm = ftr->metrics + i;
         gm->ax = gs->advance.x >> 6;
         gm->ay = gs->advance.y >> 6;
         gm->bw = gs->bitmap.width;
         gm->bh = gs->bitmap.rows;
         gm->bl = gs->bitmap_left;
         gm->bt = gs->bitmap_top;
-        gm->tx = (float) x / fgb->atlas_w;
+        gm->tx = (float) x / ftr->atlas_w;
 
         x += face->glyph->bitmap.width;
     }
@@ -189,7 +189,7 @@ static void fgb_init_texture_atlas(free_glyph_buffer_t *fgb, FT_Face face)
 
 // Initialize glyph vertex array, buffers, attributes, and whatnot
 
-enum ftglyph_attr {
+enum ft_glyph_attr {
     GLYPH_ATTR_POS = 0,
     GLYPH_ATTR_SIZE,
     GLYPH_ATTR_UV_POS,
@@ -203,36 +203,36 @@ typedef struct {
     GLvoid *ptr;
     GLint size;
     GLenum type;
-} ftglyph_attr_t;
+} ft_glyph_attr_t;
 
-static ftglyph_attr_t glyph_attrs[GLYPH_ATTR_COUNT] = {
+static ft_glyph_attr_t glyph_attrs[GLYPH_ATTR_COUNT] = {
     [GLYPH_ATTR_POS]   = {
-        .ptr = (GLvoid *) offsetof(ftglyph_t, pos),
+        .ptr = (GLvoid *) offsetof(ft_glyph_t, pos),
         .size = 2,
         .type = GL_FLOAT,
     },
     [GLYPH_ATTR_SIZE]   = {
-        .ptr = (GLvoid *) offsetof(ftglyph_t, size),
+        .ptr = (GLvoid *) offsetof(ft_glyph_t, size),
         .size = 2,
         .type = GL_FLOAT,
     },
     [GLYPH_ATTR_UV_POS]    = {
-        .ptr = (GLvoid *) offsetof(ftglyph_t, uv_pos),
+        .ptr = (GLvoid *) offsetof(ft_glyph_t, uv_pos),
         .size = 2,
         .type = GL_FLOAT,
     },
     [GLYPH_ATTR_UV_SIZE]    = {
-        .ptr = (GLvoid *) offsetof(ftglyph_t, uv_size),
+        .ptr = (GLvoid *) offsetof(ft_glyph_t, uv_size),
         .size = 2,
         .type = GL_FLOAT,
     },
     [GLYPH_ATTR_FG] = {
-        .ptr = (GLvoid *) offsetof(ftglyph_t, fg),
+        .ptr = (GLvoid *) offsetof(ft_glyph_t, fg),
         .size = 4,
         .type = GL_FLOAT,
     },
     [GLYPH_ATTR_BG] = {
-        .ptr = (GLvoid *) offsetof(ftglyph_t, bg),
+        .ptr = (GLvoid *) offsetof(ft_glyph_t, bg),
         .size = 4,
         .type = GL_FLOAT,
     },
@@ -240,23 +240,23 @@ static ftglyph_attr_t glyph_attrs[GLYPH_ATTR_COUNT] = {
 
 static_assert(GLYPH_ATTR_COUNT == 6, "The amount of ftglyph attributes has changed.");
 
-static void fgb_init_buffers(free_glyph_buffer_t *fgb)
+static void ftr_init_buffers(ft_renderer_t *ftr)
 {
-    glGenVertexArrays(1, &fgb->vao);
-    glBindVertexArray(fgb->vao);
+    glGenVertexArrays(1, &ftr->vao);
+    glBindVertexArray(ftr->vao);
 
-    glGenBuffers(1, &fgb->vbo);
-    glBindBuffer(GL_ARRAY_BUFFER, fgb->vbo);
-    glBufferData(GL_ARRAY_BUFFER, sizeof fgb->buffer, fgb->buffer, GL_DYNAMIC_DRAW);
+    glGenBuffers(1, &ftr->vbo);
+    glBindBuffer(GL_ARRAY_BUFFER, ftr->vbo);
+    glBufferData(GL_ARRAY_BUFFER, sizeof ftr->buffer, ftr->buffer, GL_DYNAMIC_DRAW);
 
-    for (enum ftglyph_attr attr = 0; attr < GLYPH_ATTR_COUNT; attr++) {
+    for (enum ft_glyph_attr attr = 0; attr < GLYPH_ATTR_COUNT; attr++) {
         if (glyph_attrs[attr].type == GL_FLOAT) {
             glVertexAttribPointer(
-                    attr, glyph_attrs[attr].size, GL_FLOAT, GL_FALSE, sizeof *fgb->buffer,
+                    attr, glyph_attrs[attr].size, GL_FLOAT, GL_FALSE, sizeof *ftr->buffer,
                     glyph_attrs[attr].ptr);
         } else if (glyph_attrs[attr].type == GL_INT) {
             glVertexAttribIPointer(
-                    attr, glyph_attrs[attr].size, GL_INT, sizeof *fgb->buffer,
+                    attr, glyph_attrs[attr].size, GL_INT, sizeof *ftr->buffer,
                     glyph_attrs[attr].ptr);
         } else {
             panic("Type not handled: %d\n", glyph_attrs[attr].type);
@@ -266,7 +266,7 @@ static void fgb_init_buffers(free_glyph_buffer_t *fgb)
     }
 }
 
-static char const *uniform_name(enum ftuniform ftu)
+static char const *uniform_name(enum ft_uniform ftu)
 {
     switch (ftu) {
         case FTU_TIME:
@@ -288,9 +288,9 @@ static char const *uniform_name(enum ftuniform ftu)
 
 static_assert(FTU_COUNT == 4, "The amount of freetype renderer uniforms has changed.");
 
-static void fgb_get_uniform_locations(GLuint program, GLint locations[FTU_COUNT])
+static void ftr_get_uniform_locations(GLuint program, GLint locations[FTU_COUNT])
 {
-    for (enum ftuniform ftu = 0; ftu < FTU_COUNT; ftu++) {
+    for (enum ft_uniform ftu = 0; ftu < FTU_COUNT; ftu++) {
         locations[ftu] = glGetUniformLocation(program, uniform_name(ftu));
     }
 }
