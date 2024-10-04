@@ -5,7 +5,7 @@
 
 #include "str.h"
 
-// I would be nice to insert text anywhere in the buffer regardless of cursor position.
+// It would be nice to insert text anywhere in the buffer regardless of cursor position.
 
 typedef struct {
     str_t string;

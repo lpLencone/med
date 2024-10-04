@@ -47,7 +47,7 @@ typedef struct {
 
     GLint u[FTU_COUNT];
 
-#define GLYPH_BUFFER_CAP 640 * 1024
+#define GLYPH_BUFFER_CAP 1024 * 1024
     ftglyph_t buffer[GLYPH_BUFFER_CAP];
     size_t count;
 

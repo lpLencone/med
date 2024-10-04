@@ -63,7 +63,7 @@ buffer_t buffer = { 0 };
 v2f_t camera_pos = { 0 };
 v2f_t resolution = { SCREEN_WIDTH, SCREEN_HEIGHT };
 float const MAX_SCALE = 1.0;
-float const MIN_SCALE = 0.2;
+float const MIN_SCALE = 0.25;
 float g_scale = MAX_SCALE;
 
 static free_glyph_buffer_t fgb = { 0 };
@@ -71,27 +71,49 @@ static cursor_renderer_t cr = { 0 };
 
 void render_fgb(float dt)
 {
-    size_t line_size = fgb.atlas_h * g_scale;
-    int num_lines_displayed = resolution.y / line_size;
-    size_t line_start =
-            max((int) buffer_get_cursor_row(&buffer) - (num_lines_displayed / 2), 0);
-    size_t widest_line_width = fgb_get_widest_line_width(
-            &fgb, buffer.string.data, buffer.string.length, line_start,
-            num_lines_displayed);
-    float g_scale_target =
-            max(MIN_SCALE, min(MAX_SCALE, 0.5 * resolution.x / widest_line_width));
-    float g_scale_vel = g_scale_target - g_scale;
-    g_scale += g_scale_vel * 2.0 * dt;
+    float widest_line_width = 0.0;
+    size_t cur_render_start, cur_render_size;
+    {
+        size_t line_size = fgb.atlas_h * g_scale;
+        size_t lines_count = resolution.y / line_size;
+        size_t line_start =
+                max((int) buffer_get_cursor_row(&buffer) - (int) (lines_count / 2), 0);
+        widest_line_width = fgb_get_widest_line_width(
+                &fgb, buffer.string.data, buffer.string.length, line_start, lines_count);
+        float g_scale_target =
+                max(MIN_SCALE, min(MAX_SCALE, 0.6 * resolution.x / widest_line_width));
+        float g_scale_vel = g_scale_target - g_scale;
+        g_scale += g_scale_vel * 2.0 * dt;
+    }
 
-    v2f_t cur_pos = fgb_cursor_pos(&fgb, buffer.string.data, buffer.cursor);
-    char c = buffer_get_char(&buffer);
-    size_t cur_width = fgb_char_width(&fgb, (c != '\0' && c != '\n') ? c : ' ');
-    v2f_t cur_size = v2f(cur_width, fgb.atlas_h);
-    cur_pos.y -= fgb.atlas_low;
+    v2f_t cur_pos = { 0 }, cur_size = { 0 };
+    {
+        cur_pos = fgb_cursor_pos(&fgb, buffer.string.data, buffer.cursor);
+        char c = buffer_get_char(&buffer);
+        float cur_width = fgb_char_width(&fgb, (c != '\0' && c != '\n') ? c : ' ');
+        cur_size = v2f(cur_width, fgb.atlas_h);
+        cur_pos.y -= fgb.atlas_low;
+    }
 
-    v2f_t camera_target = v2f(widest_line_width / 2.0, cur_pos.y + cur_size.y / 2.0);
-    v2f_t camera_vel = v2f_sub(camera_target, camera_pos);
-    camera_pos = v2f_add(camera_pos, v2f_mulf(camera_vel, 2.0 * dt));
+    {
+        float const line_half_width = widest_line_width / 2.0;
+        float const RIGHT_OFFSET = 0.15;
+        float const LEFT_OFFSET = 0.05;
+        float const rightmost =
+                max(line_half_width,
+                    widest_line_width - (0.5 - RIGHT_OFFSET) * resolution.x / g_scale);
+        float const leftmost =
+                min(line_half_width, (0.5 - LEFT_OFFSET) * resolution.x / g_scale);
+
+        float camera_target_x;
+        {
+            float a = max(cur_pos.x, leftmost);
+            camera_target_x = (cur_pos.x < a) ? a : min(cur_pos.x, rightmost);
+        }
+        v2f_t camera_target = v2f(camera_target_x, cur_pos.y + cur_size.y / 2.0);
+        v2f_t camera_vel = v2f_sub(camera_target, camera_pos);
+        camera_pos = v2f_add(camera_pos, v2f_mulf(camera_vel, 2.0 * dt));
+    }
 
     glUseProgram(cr.shader);
     glUniform2f(cr.u[CRU_POS], v2(cur_pos));
