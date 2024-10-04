@@ -3,15 +3,20 @@
 
 #include <GL/glew.h>
 
+enum cruniform {
+    CRU_POS,
+    CRU_SIZE,
+    CRU_TIME,
+    CRU_CAMERA,
+    CRU_SCALE,
+    CRU_RESOLUTION,
+    CRU_LAST_MOVED,
+    CRU_COUNT,
+};
+
 typedef struct {
     GLuint shader;
-
-    GLint u_pos;
-    GLint u_size;
-    GLint u_time;
-    GLint u_camera;
-    GLint u_resolution;
-    GLint u_last_moved;
+    GLint u[CRU_COUNT];
 } cursor_renderer_t;
 
 cursor_renderer_t cr_init(char const *vert_filename, char const *frag_filename);

@@ -1,12 +1,20 @@
 #ifndef FREE_GLYPH_H_
 #define FREE_GLYPH_H_
 
-#include "la.h"
 #include "glslinker.h"
+#include "la.h"
 
 #include <GL/glew.h>
 #include <freetype2/ft2build.h>
 #include FT_FREETYPE_H
+
+enum ftuniform {
+    FTU_TIME,
+    FTU_RESOLUTION,
+    FTU_CAMERA,
+    FTU_SCALE,
+    FTU_COUNT,
+};
 
 typedef struct {
     v2f_t pos;
@@ -37,10 +45,7 @@ typedef struct {
     unsigned int atlas_h;
     unsigned int atlas_low;
 
-    GLint u_time;
-    GLint u_resolution;
-    GLint u_scale;
-    GLint u_camera;
+    GLint u[FTU_COUNT];
 
 #define GLYPH_BUFFER_CAP 640 * 1024
     ftglyph_t buffer[GLYPH_BUFFER_CAP];
@@ -59,8 +64,7 @@ void fgb_render_text(
         free_glyph_buffer_t *fgb, char const *text, size_t text_size, v2f_t pos, v4f_t fg,
         v4f_t bg);
 
-v2f_t fgb_cursor_pos(
-        free_glyph_buffer_t *fgb, char const *text, size_t text_size);
+v2f_t fgb_cursor_pos(free_glyph_buffer_t *fgb, char const *text, size_t text_size);
 
 size_t fgb_char_width(free_glyph_buffer_t *fgb, char c);
 

@@ -20,16 +20,17 @@
 #define SCREEN_WIDTH  800
 #define SCREEN_HEIGHT 600
 
-#define PIXEL_SIZE 32
+#define PIXEL_SIZE 28
 
 // #define FONT_FREE_FILENAME "fonts/VictorMono-Regular.ttf"
-#define FONT_FREE_FILENAME "fonts/Qdbettercomicsans-jEEeG.ttf"
+// #define FONT_FREE_FILENAME "fonts/Qdbettercomicsans-jEEeG.ttf"
 // #define FONT_FREE_FILENAME "fonts/ttf - Ac (aspect-corrected)/Ac437_IBM_EGA_9x14.ttf"
 // #define FONT_FREE_FILENAME "fonts/ttf - Mx (mixed outline+bitmap)/Mx437_Mindset.ttf"
-// #define FONT_FREE_FILENAME "fonts/ttf - Px (pixel outline)/Px437_STB_AutoEGA_9x14.ttf"
+#define FONT_FREE_FILENAME "fonts/ttf - Px (pixel outline)/Px437_STB_AutoEGA_9x14.ttf"
 // #define FONT_FREE_FILENAME "fonts/ttf - Px (pixel outline)/Px437_IBM_EGA_8x8.ttf"
 // #define FONT_FREE_FILENAME "fonts/ttf - Px (pixel
 // outline)/PxPlus_Rainbow100_re_132.ttf"
+
 // #define FONT_FREE_FILENAME "fonts/ttf - Px (pixel outline)/Px437_Compaq_Port3.ttf"
 
 void scc_(int code, int line)
@@ -61,7 +62,7 @@ void MessageCallback(
 }
 
 buffer_t buffer = { 0 };
-v2f_t cam_pos = { 0 }, cam_vel = { 0 };
+v2f_t camera_pos = { 0 }, cam_vel = { 0 };
 
 static free_glyph_buffer_t fgb = { 0 };
 static cursor_renderer_t cr = { 0 };
@@ -73,20 +74,24 @@ void render_fgb(float dt)
     size_t cur_width = fgb_char_width(&fgb, (c != '\0' && c != '\n') ? c : ' ');
 
     cur_pos.y -= fgb.atlas_low;
-    cam_vel = v2f_sub(cur_pos, cam_pos);
-    cam_pos = v2f_add(cam_pos, v2f_mulf(cam_vel, 2.0 * dt));
+    cam_vel = v2f_sub(cur_pos, camera_pos);
+    camera_pos = v2f_add(camera_pos, v2f_mulf(cam_vel, 2.0 * dt));
+
+    const float scale = 1.0;
 
     glUseProgram(cr.shader);
-    glUniform2f(cr.u_pos, v2(cur_pos));
-    glUniform2f(cr.u_camera, v2(cam_pos));
-    glUniform1f(cr.u_time, SDL_GetTicks() / 1000.0);
-    glUniform2f(cr.u_size, cur_width, fgb.atlas_h);
+    glUniform2f(cr.u[CRU_POS], v2(cur_pos));
+    glUniform2f(cr.u[CRU_CAMERA], v2(camera_pos));
+    glUniform1f(cr.u[CRU_TIME], SDL_GetTicks() / 1000.0);
+    glUniform2f(cr.u[CRU_SIZE], cur_width, fgb.atlas_h);
+    glUniform1f(cr.u[CRU_SCALE], scale);
 
     cr_render();
 
     glUseProgram(fgb.shader);
-    glUniform2f(fgb.u_camera, v2(cam_pos));
-    glUniform1f(fgb.u_time, SDL_GetTicks() / 1000.0);
+    glUniform2f(fgb.u[FTU_CAMERA], v2(camera_pos));
+    glUniform1f(fgb.u[FTU_TIME], SDL_GetTicks() / 1000.0);
+    glUniform1f(fgb.u[FTU_SCALE], scale);
 
     fgb_render_text(
             &fgb, buffer.string.data, buffer.string.length, v2fs(0.0), v4fs(1.0),
@@ -177,7 +182,7 @@ int main(int argc, char *argv[])
         if (buffer.cursor != cur_last_pos) {
             cur_last_pos = buffer.cursor;
             glUseProgram(cr.shader);
-            glUniform1f(cr.u_last_moved, now);
+            glUniform1f(cr.u[CRU_LAST_MOVED], now);
         }
 
         SDL_Event event = { 0 };
@@ -189,9 +194,9 @@ int main(int argc, char *argv[])
                         SDL_GetWindowSize(window, &width, &height);
                         glViewport(0, 0, width, height);
                         glUseProgram(fgb.shader);
-                        glUniform2f(fgb.u_resolution, (float) width, (float) height);
+                        glUniform2f(fgb.u[FTU_RESOLUTION], (float) width, (float) height);
                         glUseProgram(cr.shader);
-                        glUniform2f(cr.u_resolution, (float) width, (float) height);
+                        glUniform2f(cr.u[CRU_RESOLUTION], (float) width, (float) height);
                     }
                 } break;
 
