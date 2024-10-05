@@ -8,8 +8,8 @@
 #include <freetype2/ft2build.h>
 #include FT_FREETYPE_H
 
-#include "buffer.h"
 #include "cursor_renderer.h"
+#include "editor.h"
 #include "freetype_renderer.h"
 #include "la.h"
 #include "lib.h"
@@ -59,7 +59,7 @@ void MessageCallback(
             type == GL_DEBUG_TYPE_ERROR ? "GL ERROR" : "GL INFO ", message);
 }
 
-buffer_t buffer = { 0 };
+editor_t editor = { 0 };
 v2f_t camera_pos = { 0 };
 v2f_t resolution = { SCREEN_WIDTH, SCREEN_HEIGHT };
 float const MAX_SCALE = 1.0;
@@ -76,9 +76,9 @@ void render_ftr(float dt)
         size_t line_size = ftr.atlas_h * g_scale;
         size_t lines_count = resolution.y / line_size;
         size_t line_start =
-                max((int) buffer_get_cursor_row(&buffer) - (int) (lines_count / 2), 0);
+                max((int) editor_get_cursor_row(&editor) - (int) (lines_count / 2), 0);
         widest_line_width = ftr_get_widest_line_width(
-                &ftr, buffer.string.data, buffer.string.length, line_start, lines_count);
+                &ftr, editor.string.data, editor.string.length, line_start, lines_count);
         float g_scale_target =
                 max(MIN_SCALE, min(MAX_SCALE, 0.6 * resolution.x / widest_line_width));
         float g_scale_vel = g_scale_target - g_scale;
@@ -87,8 +87,8 @@ void render_ftr(float dt)
 
     v2f_t cur_pos = { 0 }, cur_size = { 0 };
     {
-        cur_pos = ftr_cursor_pos(&ftr, buffer.string.data, buffer.cursor);
-        char c = buffer_get_char(&buffer);
+        cur_pos = ftr_cursor_pos(&ftr, editor.string.data, editor.cursor);
+        char c = editor_get_char(&editor);
         float cur_width = ftr_char_width(&ftr, (c != '\0' && c != '\n') ? c : ' ');
         cur_size = v2f(cur_width, ftr.atlas_h);
         cur_pos.y -= ftr.atlas_low;
@@ -129,7 +129,7 @@ void render_ftr(float dt)
     glUniform1f(ftr.u[FTU_SCALE], g_scale);
 
     ftr_render_text(
-            &ftr, buffer.string.data, buffer.string.length, v2fs(0.0), v4fs(1.0),
+            &ftr, editor.string.data, editor.string.length, v2fs(0.0), v4fs(1.0),
             v4fs(0.0));
     ftr_flush(&ftr);
 }
@@ -140,7 +140,7 @@ int main(int argc, char *argv[])
     char const *filename = argv[1];
     FILE *fp = fopen(filename, "r");
     if (fp != NULL) {
-        buffer_load_file(&buffer, fp);
+        editor_load_file(&editor, fp);
         fclose(fp);
     }
 
@@ -205,7 +205,7 @@ int main(int argc, char *argv[])
 
     ftr_init(&ftr, face, "shaders/free_glyph.vert", "shaders/free_glyph.frag");
     cr = cr_init("shaders/cursor.vert", "shaders/cursor.frag");
-    size_t cur_last_pos = buffer.cursor;
+    size_t cur_last_pos = editor.cursor;
 
     bool quit = false;
     float dt, now, last_frame = 0.0;
@@ -214,8 +214,8 @@ int main(int argc, char *argv[])
         dt = now - last_frame;
         last_frame = now;
 
-        if (buffer.cursor != cur_last_pos) {
-            cur_last_pos = buffer.cursor;
+        if (editor.cursor != cur_last_pos) {
+            cur_last_pos = editor.cursor;
             glUseProgram(cr.shader);
             glUniform1f(cr.u[CRU_LAST_MOVED], now);
         }
@@ -243,50 +243,50 @@ int main(int argc, char *argv[])
                 case SDL_KEYDOWN: {
                     switch (event.key.keysym.sym) {
                         case SDLK_BACKSPACE: {
-                            buffer_delete_backward_char(&buffer);
+                            editor_delete_backward_char(&editor);
                         } break;
 
                         case SDLK_DELETE: {
-                            buffer_delete_char(&buffer);
+                            editor_delete_char(&editor);
                         } break;
 
                         case SDLK_RETURN: {
-                            buffer_newline(&buffer);
+                            editor_newline(&editor);
                         } break;
 
                         case SDLK_l: {
                             if (event.key.keysym.mod & KMOD_CTRL) {
-                                buffer_forward_char(&buffer);
+                                editor_forward_char(&editor);
                             }
                         } break;
 
                         case SDLK_h: {
                             if (event.key.keysym.mod & KMOD_CTRL) {
-                                buffer_backward_char(&buffer);
+                                editor_backward_char(&editor);
                             }
                         } break;
 
                         case SDLK_j: {
                             if (event.key.keysym.mod & KMOD_CTRL) {
-                                buffer_next_line(&buffer);
+                                editor_next_line(&editor);
                             }
                         } break;
 
                         case SDLK_k: {
                             if (event.key.keysym.mod & KMOD_CTRL) {
-                                buffer_previous_line(&buffer);
+                                editor_previous_line(&editor);
                             }
                         } break;
 
                         case SDLK_3: {
                             if (event.key.keysym.mod & KMOD_CTRL) {
-                                buffer_move_beginning_of_line(&buffer);
+                                editor_move_beginning_of_line(&editor);
                             }
                         } break;
 
                         case SDLK_4: {
                             if (event.key.keysym.mod & KMOD_CTRL) {
-                                buffer_move_end_of_line(&buffer);
+                                editor_move_end_of_line(&editor);
                             }
                         } break;
 
@@ -299,7 +299,7 @@ int main(int argc, char *argv[])
                                             strerror(errno));
                                     exit(1);
                                 }
-                                buffer_save_to_file(&buffer, fp);
+                                editor_save_to_file(&editor, fp);
                                 fclose(fp);
                             }
                         } break;
@@ -307,7 +307,7 @@ int main(int argc, char *argv[])
                 } break;
 
                 case SDL_TEXTINPUT: {
-                    buffer_insert_text(&buffer, event.text.text, strlen(event.text.text));
+                    editor_insert_text(&editor, event.text.text, strlen(event.text.text));
                 } break;
             }
         }

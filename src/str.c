@@ -56,6 +56,18 @@ size_t str_find_char_rev(str_t const *s, char c, size_t index)
     return index;
 }
 
+size_t str_count(str_t const *s, char c, size_t index)
+{
+    assert(index <= s->length);
+    size_t count = 0;
+    while (index < s->length) {
+        if (s->data[index++] == c) {
+            count++;
+        }
+    }
+    return count;
+}
+
 size_t str_count_rev(str_t const *s, char c, size_t index)
 {
     assert(index <= s->length);
