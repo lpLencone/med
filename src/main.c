@@ -8,9 +8,10 @@
 #include <freetype2/ft2build.h>
 #include FT_FREETYPE_H
 
+#include "renderer.h"
 #include "cursor_renderer.h"
-#include "editor.h"
 #include "freetype_renderer.h"
+#include "editor.h"
 #include "la.h"
 #include "lib.h"
 
@@ -34,7 +35,7 @@
 void scc_(int code, int line)
 {
     if (code < 0) {
-        eprintln("%d::SDL ERROR: %s", line, SDL_GetError());
+        eprintf("%d::SDL ERROR: %s\n", line, SDL_GetError());
         exit(1);
     }
 }
@@ -43,7 +44,7 @@ void scc_(int code, int line)
 void *scp_(void *ptr, int line)
 {
     if (ptr == NULL) {
-        eprintln("%d::SDL ERROR: %s", line, SDL_GetError());
+        eprintf("%d::SDL ERROR: %s\n", line, SDL_GetError());
         exit(1);
     }
     return ptr;
@@ -68,6 +69,7 @@ float g_scale = MAX_SCALE;
 
 static ft_renderer_t ftr = { 0 };
 static cursor_renderer_t cr = { 0 };
+static renderer_t r = { 0 };
 
 void render_ftr(float dt)
 {
@@ -171,7 +173,7 @@ int main(int argc, char *argv[])
             glEnable(GL_DEBUG_OUTPUT);
             glDebugMessageCallback(MessageCallback, 0);
         } else {
-            eprintln("Warning: GLEW_ARB_debug_output is not available.");
+            eprintf("Warning: GLEW_ARB_debug_output is not available.\n");
         }
 
         if (!GLEW_ARB_draw_instanced) {
@@ -186,24 +188,25 @@ int main(int argc, char *argv[])
     FT_Library library = { 0 };
     FT_Error error = FT_Init_FreeType(&library);
     if (FT_Err_Ok != error) {
-        panic("Could not initialize the FreeType library: %s\n", FT_Error_String(error));
+        panic("Could not initialize the FreeType library: %s", FT_Error_String(error));
     }
 
     FT_Face face = { 0 };
     error = FT_New_Face(library, FONT_FREE_FILENAME, 0, &face);
     if (error == FT_Err_Cannot_Open_Resource) {
-        panic("Could not open font filename: " FONT_FREE_FILENAME "\n");
+        panic("Could not open font filename: " FONT_FREE_FILENAME);
     } else if (error != FT_Err_Ok) {
-        panic("Could not create face: %d - %s\n", error, FT_Error_String(error));
+        panic("Could not create face: %d - %s", error, FT_Error_String(error));
     }
 
     FT_UInt pixel_size = PIXEL_SIZE;
     error = FT_Set_Pixel_Sizes(face, 0, pixel_size);
     if (FT_Err_Ok != error) {
-        panic("Could not set pixel sizes: %s\n", FT_Error_String(error));
+        panic("Could not set pixel sizes: %s", FT_Error_String(error));
     }
 
     ftr_init(&ftr, face, "shaders/free_glyph.vert", "shaders/free_glyph.frag");
+    renderer_init(&r, "shaders/shader.vert", "shaders/shader.frag");
     cr = cr_init("shaders/cursor.vert", "shaders/cursor.frag");
     size_t cur_last_pos = editor.cursor;
 
@@ -294,8 +297,7 @@ int main(int argc, char *argv[])
                             if (event.key.keysym.mod & KMOD_CTRL) {
                                 FILE *fp = fopen(filename, "w");
                                 if (fp == NULL) {
-                                    eprintln(
-                                            "Could not open file %s: %s\n", filename,
+                                    eprintf("Could not open file %s: %s\n", filename,
                                             strerror(errno));
                                     exit(1);
                                 }

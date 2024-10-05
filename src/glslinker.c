@@ -20,6 +20,7 @@ bool glslink_program(GLuint *program, slice_t vert_filenames, slice_t frag_filen
     if (!shader_compile(shaders, vert_filenames, GL_VERTEX_SHADER)) {
         return false;
     }
+
     if (!shader_compile(
                 shaders + vert_filenames.length, frag_filenames, GL_FRAGMENT_SHADER)) {
         for (size_t i = 0; i < vert_filenames.length; i++) {
@@ -49,6 +50,8 @@ static bool shader_compile(GLuint *shaders, slice_t filenames, GLenum shader_typ
         str_load_file(&shader_source, fp);
         fclose(fp);
 
+        eprintf("Compiling: %s\n", filename);
+
         shaders[i] = glCreateShader(shader_type);
         glShaderSource(shaders[i], 1, (GLchar const **) &shader_source.data, NULL);
         glCompileShader(shaders[i]);
@@ -58,7 +61,7 @@ static bool shader_compile(GLuint *shaders, slice_t filenames, GLenum shader_typ
         glGetShaderiv(shaders[i], GL_COMPILE_STATUS, &status);
         if (status == GL_FALSE) {
             glGetShaderInfoLog(shaders[i], 512, NULL, info_log);
-            eprintln("Could not compile shader %s: %s", filename, info_log);
+            eprintf("Could not compile shader %s: %s\n", filename, info_log);
 
             for (size_t j = 0; j < i; j++) {
                 glDeleteShader(shaders[j]);
@@ -83,7 +86,7 @@ static bool program_link(GLuint *program, slice_t shaders)
     glGetProgramiv(*program, GL_LINK_STATUS, &status);
     if (!status) {
         glGetProgramInfoLog(*program, 512, NULL, info_log);
-        eprint("Could not link program: %s", info_log);
+        eprintf("Could not link program: %s\n", info_log);
         return false;
     }
 

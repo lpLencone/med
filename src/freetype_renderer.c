@@ -126,7 +126,7 @@ static void ftr_init_texture_atlas(ft_renderer_t *ftr, FT_Face face)
     FT_Error error;
     for (int i = 32; i < 128; i++) {
         if ((error = FT_Load_Char(face, i, FT_LOAD_RENDER)) != FT_Err_Ok) {
-            eprintln("Error loading char %c: %s\n", i, FT_Error_String(error));
+            eprintf("Error loading char %c: %s\n", i, FT_Error_String(error));
             continue;
         }
         FT_GlyphSlot gs = face->glyph;
@@ -290,7 +290,11 @@ static_assert(FTU_COUNT == 4, "The amount of freetype renderer uniforms has chan
 
 static void ftr_get_uniform_locations(GLuint program, GLint locations[FTU_COUNT])
 {
+    glUseProgram(program);
     for (enum ft_uniform ftu = 0; ftu < FTU_COUNT; ftu++) {
         locations[ftu] = glGetUniformLocation(program, uniform_name(ftu));
+        if (locations[ftu] == -1) {
+            panic("Uniform %d unavailable. Program won't render correctly.", ftu);
+        }
     }
 }
