@@ -41,9 +41,9 @@ typedef struct {
     GLuint atlas;
     GLuint shader;
 
-    unsigned int atlas_w;
-    unsigned int atlas_h;
-    unsigned int atlas_low;
+    FT_UInt atlas_w;
+    FT_UInt atlas_h;
+    FT_UInt atlas_low;
 
     GLint u[FTU_COUNT];
 

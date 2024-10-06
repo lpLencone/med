@@ -5,6 +5,5 @@ uniform vec2 u_resolution;
 vec2 project(vec2 point)
 {
     return 2.0 * (point - u_camera) * u_scale / u_resolution;
-    // return 2.0 * (point - u_camera) / u_resolution;
 }
 

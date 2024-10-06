@@ -8,10 +8,9 @@
 #include <freetype2/ft2build.h>
 #include FT_FREETYPE_H
 
-#include "renderer.h"
 #include "cursor_renderer.h"
-#include "freetype_renderer.h"
 #include "editor.h"
+#include "freetype_renderer.h"
 #include "la.h"
 #include "lib.h"
 
@@ -69,9 +68,8 @@ float g_scale = MAX_SCALE;
 
 static ft_renderer_t ftr = { 0 };
 static cursor_renderer_t cr = { 0 };
-static renderer_t r = { 0 };
 
-void render_ftr(float dt)
+void render_scene(float dt)
 {
     float widest_line_width = 0.0;
     {
@@ -116,24 +114,25 @@ void render_ftr(float dt)
         camera_pos = v2f_add(camera_pos, v2f_mulf(camera_vel, 2.0 * dt));
     }
 
-    glUseProgram(cr.shader);
-    glUniform2f(cr.u[CRU_POS], v2(cur_pos));
-    glUniform2f(cr.u[CRU_SIZE], v2(cur_size));
-    glUniform1f(cr.u[CRU_TIME], SDL_GetTicks() / 1000.0);
-    glUniform2f(cr.u[CRU_CAMERA], v2(camera_pos));
-    glUniform1f(cr.u[CRU_SCALE], g_scale);
+    float const time = SDL_GetTicks() / 1000.0;
+    {
+        glUseProgram(cr.r.program);
+        cr_set_time(&cr, time);
+        cr_set_scale(&cr, g_scale);
+        cr_set_camera(&cr, camera_pos);
+        cr_draw(&cr, cur_pos, cur_size, v4fs(1.0));
+    }
 
-    cr_render();
-
-    glUseProgram(ftr.shader);
-    glUniform2f(ftr.u[FTU_CAMERA], v2(camera_pos));
-    glUniform1f(ftr.u[FTU_TIME], SDL_GetTicks() / 1000.0);
-    glUniform1f(ftr.u[FTU_SCALE], g_scale);
-
-    ftr_render_text(
-            &ftr, editor.string.data, editor.string.length, v2fs(0.0), v4fs(1.0),
-            v4fs(0.0));
-    ftr_flush(&ftr);
+    {
+        glUseProgram(ftr.shader);
+        glUniform2f(ftr.u[FTU_CAMERA], v2(camera_pos));
+        glUniform1f(ftr.u[FTU_TIME], time);
+        glUniform1f(ftr.u[FTU_SCALE], g_scale);
+        ftr_render_text(
+                &ftr, editor.string.data, editor.string.length, v2fs(0.0), v4fs(1.0),
+                v4fs(0.0));
+        ftr_flush(&ftr);
+    }
 }
 
 int main(int argc, char *argv[])
@@ -206,8 +205,7 @@ int main(int argc, char *argv[])
     }
 
     ftr_init(&ftr, face, "shaders/free_glyph.vert", "shaders/free_glyph.frag");
-    renderer_init(&r, "shaders/shader.vert", "shaders/shader.frag");
-    cr = cr_init("shaders/cursor.vert", "shaders/cursor.frag");
+    cr_init(&cr);
     size_t cur_last_pos = editor.cursor;
 
     bool quit = false;
@@ -219,8 +217,7 @@ int main(int argc, char *argv[])
 
         if (editor.cursor != cur_last_pos) {
             cur_last_pos = editor.cursor;
-            glUseProgram(cr.shader);
-            glUniform1f(cr.u[CRU_LAST_MOVED], now);
+            cr_set_time_moved(&cr, now);
         }
 
         SDL_Event event = { 0 };
@@ -231,11 +228,10 @@ int main(int argc, char *argv[])
                         int width, height;
                         SDL_GetWindowSize(window, &width, &height);
                         glViewport(0, 0, width, height);
-                        glUseProgram(ftr.shader);
-                        glUniform2f(ftr.u[FTU_RESOLUTION], (float) width, (float) height);
-                        glUseProgram(cr.shader);
-                        glUniform2f(cr.u[CRU_RESOLUTION], (float) width, (float) height);
                         resolution = v2f(width, height);
+                        glUseProgram(ftr.shader);
+                        glUniform2f(ftr.u[FTU_RESOLUTION], v2(resolution));
+                        cr_set_resolution(&cr, resolution);
                     }
                 } break;
 
@@ -297,9 +293,8 @@ int main(int argc, char *argv[])
                             if (event.key.keysym.mod & KMOD_CTRL) {
                                 FILE *fp = fopen(filename, "w");
                                 if (fp == NULL) {
-                                    eprintf("Could not open file %s: %s\n", filename,
-                                            strerror(errno));
-                                    exit(1);
+                                    panic("Could not open file %s: %s", filename,
+                                          strerror(errno));
                                 }
                                 editor_save_to_file(&editor, fp);
                                 fclose(fp);
@@ -317,7 +312,7 @@ int main(int argc, char *argv[])
         glClearColor(0.0, 0.0, 0.0, 1.0);
         glClear(GL_COLOR_BUFFER_BIT);
 
-        render_ftr(dt);
+        render_scene(dt);
 
         SDL_GL_SwapWindow(window);
     }

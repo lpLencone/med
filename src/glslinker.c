@@ -1,7 +1,6 @@
 #include "glslinker.h"
 
 #include <assert.h>
-#include <errno.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -16,23 +15,26 @@ bool glslink_program(GLuint *program, slice_t vert_filenames, slice_t frag_filen
 {
     size_t shader_count = vert_filenames.length + frag_filenames.length;
     GLuint *shaders = malloc(sizeof *shaders * shader_count);
+    size_t compiled_count = 0;
 
     if (!shader_compile(shaders, vert_filenames, GL_VERTEX_SHADER)) {
         return false;
     }
+    compiled_count += vert_filenames.length;
 
+    bool ret = true;
     if (!shader_compile(
                 shaders + vert_filenames.length, frag_filenames, GL_FRAGMENT_SHADER)) {
-        for (size_t i = 0; i < vert_filenames.length; i++) {
-            glDeleteShader(shaders[i]);
-        }
         free(shaders);
-        return false;
+        ret = false;
+        goto end;
     }
+    compiled_count += frag_filenames.length;
 
-    bool ret = program_link(program, slice_from(shaders, shader_count));
+    ret = program_link(program, slice_from(shaders, shader_count));
 
-    for (size_t i = 0; i < shader_count; i++) {
+end:
+    for (size_t i = 0; i < compiled_count; i++) {
         glDeleteShader(shaders[i]);
     }
     free(shaders);
@@ -49,8 +51,6 @@ static bool shader_compile(GLuint *shaders, slice_t filenames, GLenum shader_typ
         assert(fp != NULL);
         str_load_file(&shader_source, fp);
         fclose(fp);
-
-        eprintf("Compiling: %s\n", filename);
 
         shaders[i] = glCreateShader(shader_type);
         glShaderSource(shaders[i], 1, (GLchar const **) &shader_source.data, NULL);

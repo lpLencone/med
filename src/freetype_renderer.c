@@ -31,6 +31,8 @@ void ftr_init(
 
 void ftr_flush(ft_renderer_t *ftr)
 {
+    glBindVertexArray(ftr->vao);
+    glBindBuffer(GL_ARRAY_BUFFER, ftr->vbo);
     glBufferSubData(GL_ARRAY_BUFFER, 0, ftr->count * sizeof *ftr->buffer, ftr->buffer);
     glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, (GLsizei) ftr->count);
     ftr->count = 0;
@@ -294,7 +296,7 @@ static void ftr_get_uniform_locations(GLuint program, GLint locations[FTU_COUNT]
     for (enum ft_uniform ftu = 0; ftu < FTU_COUNT; ftu++) {
         locations[ftu] = glGetUniformLocation(program, uniform_name(ftu));
         if (locations[ftu] == -1) {
-            panic("Uniform %d unavailable. Program won't render correctly.", ftu);
+            eprintf("Uniform %d unavailable. Program won't render correctly.\n", ftu);
         }
     }
 }
