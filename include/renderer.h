@@ -36,7 +36,7 @@ void renderer_quad(
 
 void renderer_solid_rect(renderer_t *r, v2f_t p, v2f_t size, v4f_t c);
 
-void renderer_image_rect(renderer_t *r, v2f_t p, v2f_t size);
+void renderer_image_rect(renderer_t *r, v2f_t p, v2f_t size, v2f_t uvp, v2f_t uvs, v4f_t c);
 
 void renderer_draw(renderer_t *r);
 

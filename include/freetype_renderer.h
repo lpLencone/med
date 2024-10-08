@@ -1,12 +1,12 @@
 #ifndef FREETYPE_RENDERER_H_
 #define FREETYPE_RENDERER_H_
 
-#include "glslinker.h"
-#include "la.h"
-
 #include <GL/glew.h>
 #include <freetype2/ft2build.h>
 #include FT_FREETYPE_H
+
+#include "la.h"
+#include "renderer.h"
 
 enum ft_uniform {
     FTU_TIME,
@@ -15,14 +15,6 @@ enum ft_uniform {
     FTU_SCALE,
     FTU_COUNT,
 };
-
-typedef struct {
-    v2f_t pos;
-    v2f_t size;
-    v2f_t uv_pos;
-    v2f_t uv_size;
-    v4f_t fg;
-} ft_glyph_t;
 
 typedef struct {
     float ax; // advance.x
@@ -35,18 +27,12 @@ typedef struct {
 } ft_glyph_metrics_t;
 
 typedef struct {
-    GLuint vao;
-    GLuint vbo;
-    GLuint atlas;
-    GLuint shader;
+    renderer_t r;
 
+    GLuint atlas;
     FT_UInt atlas_w;
     FT_UInt atlas_h;
     FT_UInt atlas_low;
-
-#define GLYPH_BUFFER_CAP 1024 * 1024
-    ft_glyph_t buffer[GLYPH_BUFFER_CAP];
-    size_t count;
 
     ft_glyph_metrics_t metrics[128];
 
@@ -59,12 +45,11 @@ void ftr_init(ft_renderer_t *ftr, FT_Face face);
 void ftr_draw(ft_renderer_t *ftr);
 
 void ftr_render_text(
-        ft_renderer_t *ftr, char const *text, size_t text_size, v2f_t pos, v4f_t fg);
+        ft_renderer_t *ftr, char const *text, size_t text_size, v2f_t pos, v4f_t color);
 
 v2f_t ftr_cursor_pos(ft_renderer_t *ftr, char const *text, size_t text_size);
 
-float ftr_get_max_line_width(
-        ft_renderer_t *ftr, char const *text, size_t text_size);
+float ftr_get_max_line_width(ft_renderer_t *ftr, char const *text, size_t text_size);
 
 float ftr_char_width(ft_renderer_t *ftr, char c);
 

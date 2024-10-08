@@ -7,37 +7,28 @@
 #include "stb_image.h"
 
 static void ftr_init_texture_atlas(ft_renderer_t *ftr, FT_Face face);
-static void ftr_init_buffers(ft_renderer_t *ftr);
 
 void ftr_init(ft_renderer_t *ftr, FT_Face face)
 {
-    ftr->count = 0;
+    // char const *vert_filenames[] = { "shaders/free_glyph.vert", "shaders/project.glsl" };
+    char const *vert_filenames[] = { "shaders/shader.vert", "shaders/project.glsl" };
+    char const *frag_filename = "shaders/color.frag";
 
-    char const *vert_filenames[] = { "shaders/free_glyph.vert", "shaders/project.glsl" };
-    char const *frag_filename = "shaders/free_glyph.frag";
+    renderer_init(&ftr->r, slice_from(vert_filenames, 2), slice_from(&frag_filename, 1));
 
-    if (!glslink_program(
-                &ftr->shader, slice_from(vert_filenames, 2),
-                slice_from(&frag_filename, 1))) {
-        panic("Could not load freetype renderer shaders.");
-    }
-    glUseProgram(ftr->shader);
+    renderer_use(&ftr->r);
     ftr_init_texture_atlas(ftr, face);
-    ftr_init_buffers(ftr);
 }
 
 void ftr_draw(ft_renderer_t *ftr)
 {
-    glUseProgram(ftr->shader);
-    glBindVertexArray(ftr->vao);
-    glBindBuffer(GL_ARRAY_BUFFER, ftr->vbo);
-    glBufferSubData(GL_ARRAY_BUFFER, 0, ftr->count * sizeof *ftr->buffer, ftr->buffer);
-    glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, (GLsizei) ftr->count);
-    ftr->count = 0;
+    renderer_use(&ftr->r);
+    glBindTexture(GL_TEXTURE_2D, ftr->atlas);
+    renderer_draw(&ftr->r);
 }
 
 void ftr_render_text(
-        ft_renderer_t *ftr, char const *text, size_t text_size, v2f_t pos, v4f_t fg)
+        ft_renderer_t *ftr, char const *text, size_t text_size, v2f_t pos, v4f_t color)
 {
     for (size_t i = 0; i < text_size; i++) {
         if (text[i] == '\n') {
@@ -55,14 +46,11 @@ void ftr_render_text(
         pos.x += metrics.ax;
         pos.y += metrics.ay;
 
-        assert(ftr->count < GLYPH_BUFFER_CAP);
-        ftr->buffer[ftr->count++] = (ft_glyph_t) {
-            .pos = v2f(x2, -y2),
-            .size = v2f(w, -h),
-            .uv_pos = v2f(metrics.tx, 0.0),
-            .uv_size = v2f(metrics.bw / ftr->atlas_w, metrics.bh / ftr->atlas_h),
-            .fg = fg,
-        };
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, ftr->atlas);
+        renderer_image_rect(
+                &ftr->r, v2f(x2, -y2), v2f(w, -h), v2f(metrics.tx, 0.0),
+                v2f(metrics.bw / ftr->atlas_w, metrics.bh / ftr->atlas_h), color);
     }
 }
 
@@ -110,21 +98,19 @@ float ftr_char_width(ft_renderer_t *ftr, char c)
 
 void ftr_use(ft_renderer_t const *ftr)
 {
-    glUseProgram(ftr->shader);
+    renderer_use(&ftr->r);
 }
 
 static char const *uniform_name(enum ft_uniform ftu);
 
 void ftr_set_float(ft_renderer_t const *ftr, enum ft_uniform u, float f)
 {
-    glUseProgram(ftr->shader);
-    glUniform1f(glGetUniformLocation(ftr->shader, uniform_name(u)), f);
+    renderer_uniform1f(&ftr->r, uniform_name(u), f);
 }
 
 void ftr_set_v2f(ft_renderer_t const *ftr, enum ft_uniform u, v2f_t v)
 {
-    glUseProgram(ftr->shader);
-    glUniform2f(glGetUniformLocation(ftr->shader, uniform_name(u)), v2(v));
+    renderer_uniform2f(&ftr->r, uniform_name(u), v2(v));
 }
 
 static void ftr_init_texture_atlas(ft_renderer_t *ftr, FT_Face face)
@@ -194,79 +180,6 @@ static void ftr_init_texture_atlas(ft_renderer_t *ftr, FT_Face face)
         gm->tx = (float) x / ftr->atlas_w;
 
         x += face->glyph->bitmap.width;
-    }
-}
-
-// Initialize glyph vertex array, buffers, attributes, and whatnot
-
-enum ft_glyph_attr {
-    GLYPH_ATTR_POS = 0,
-    GLYPH_ATTR_SIZE,
-    GLYPH_ATTR_UV_POS,
-    GLYPH_ATTR_UV_SIZE,
-    GLYPH_ATTR_FG,
-    GLYPH_ATTR_COUNT,
-};
-
-typedef struct {
-    GLvoid *ptr;
-    GLint size;
-    GLenum type;
-} ft_glyph_attr_t;
-
-static ft_glyph_attr_t glyph_attrs[GLYPH_ATTR_COUNT] = {
-    [GLYPH_ATTR_POS]   = {
-        .ptr = (GLvoid *) offsetof(ft_glyph_t, pos),
-        .size = 2,
-        .type = GL_FLOAT,
-    },
-    [GLYPH_ATTR_SIZE]   = {
-        .ptr = (GLvoid *) offsetof(ft_glyph_t, size),
-        .size = 2,
-        .type = GL_FLOAT,
-    },
-    [GLYPH_ATTR_UV_POS]    = {
-        .ptr = (GLvoid *) offsetof(ft_glyph_t, uv_pos),
-        .size = 2,
-        .type = GL_FLOAT,
-    },
-    [GLYPH_ATTR_UV_SIZE]    = {
-        .ptr = (GLvoid *) offsetof(ft_glyph_t, uv_size),
-        .size = 2,
-        .type = GL_FLOAT,
-    },
-    [GLYPH_ATTR_FG] = {
-        .ptr = (GLvoid *) offsetof(ft_glyph_t, fg),
-        .size = 4,
-        .type = GL_FLOAT,
-    },
-};
-
-static_assert(GLYPH_ATTR_COUNT == 5, "The amount of ft_glyph attributes has changed.");
-
-static void ftr_init_buffers(ft_renderer_t *ftr)
-{
-    glGenVertexArrays(1, &ftr->vao);
-    glBindVertexArray(ftr->vao);
-
-    glGenBuffers(1, &ftr->vbo);
-    glBindBuffer(GL_ARRAY_BUFFER, ftr->vbo);
-    glBufferData(GL_ARRAY_BUFFER, sizeof ftr->buffer, ftr->buffer, GL_DYNAMIC_DRAW);
-
-    for (enum ft_glyph_attr attr = 0; attr < GLYPH_ATTR_COUNT; attr++) {
-        if (glyph_attrs[attr].type == GL_FLOAT) {
-            glVertexAttribPointer(
-                    attr, glyph_attrs[attr].size, GL_FLOAT, GL_FALSE, sizeof *ftr->buffer,
-                    glyph_attrs[attr].ptr);
-        } else if (glyph_attrs[attr].type == GL_INT) {
-            glVertexAttribIPointer(
-                    attr, glyph_attrs[attr].size, GL_INT, sizeof *ftr->buffer,
-                    glyph_attrs[attr].ptr);
-        } else {
-            panic("Type not handled: %d\n", glyph_attrs[attr].type);
-        }
-        glVertexAttribDivisor(attr, 1);
-        glEnableVertexAttribArray(attr);
     }
 }
 

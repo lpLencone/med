@@ -77,12 +77,13 @@ void renderer_solid_rect(renderer_t *r, v2f_t p, v2f_t size, v4f_t c)
             c, c, uv, uv, uv, uv);
 }
 
-void renderer_image_rect(renderer_t *r, v2f_t p, v2f_t size)
+void renderer_image_rect(
+        renderer_t *r, v2f_t p, v2f_t size, v2f_t uvp, v2f_t uvs, v4f_t c)
 {
-    v4f_t c = v4fs(0.0);
     renderer_quad(
             r, p, v2f(p.x + size.x, p.y), v2f_add(p, size), v2f(p.x, p.y + size.y), c, c,
-            c, c, v2fs(0), v2f(1, 0), v2fs(1), v2f(0, 1));
+            c, c, uvp, v2f(uvp.x + uvs.x, uvp.y), v2f_add(uvp, uvs),
+            v2f(uvp.x, uvp.y + uvs.y));
 }
 
 void renderer_draw(renderer_t *r)
