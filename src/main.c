@@ -132,8 +132,7 @@ void render_scene(float dt)
         ftr_set(&ftr, FTU_TIME, time);
         ftr_set(&ftr, FTU_SCALE, g_scale);
         ftr_set(&ftr, FTU_CAMERA, camera_pos);
-        ftr_render_text(
-                &ftr, editor.string.data, editor.string.length, v2fs(0.0), v4fs(1.0));
+        ftr_render_text(&ftr, editor.string.data, editor.string.length, v2fs(0), v4fs(1));
         ftr_draw(&ftr);
     }
 }

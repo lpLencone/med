@@ -69,21 +69,19 @@ void renderer_quad(
     renderer_triangle(r, p1, p3, p2, c1, c3, c2, uv1, uv3, uv2);
 }
 
-void renderer_solid_rect(renderer_t *r, v2f_t p, v2f_t size, v4f_t c)
+void renderer_solid_rect(renderer_t *r, v2f_t p, v2f_t s, v4f_t c)
 {
     v2f_t uv = v2fs(0);
     renderer_quad(
-            r, p, v2f(p.x + size.x, p.y), v2f_add(p, size), v2f(p.x, p.y + size.y), c, c,
-            c, c, uv, uv, uv, uv);
+            r, p, v2f(p.x + s.x, p.y), v2f_add(p, s), v2f(p.x, p.y + s.y), c, c, c, c, uv,
+            uv, uv, uv);
 }
 
-void renderer_image_rect(
-        renderer_t *r, v2f_t p, v2f_t size, v2f_t uvp, v2f_t uvs, v4f_t c)
+void renderer_image_rect(renderer_t *r, v2f_t p, v2f_t s, v2f_t uvp, v2f_t uvs, v4f_t c)
 {
     renderer_quad(
-            r, p, v2f(p.x + size.x, p.y), v2f_add(p, size), v2f(p.x, p.y + size.y), c, c,
-            c, c, uvp, v2f(uvp.x + uvs.x, uvp.y), v2f_add(uvp, uvs),
-            v2f(uvp.x, uvp.y + uvs.y));
+            r, p, v2f(p.x + s.x, p.y), v2f_add(p, s), v2f(p.x, p.y + s.y), c, c, c, c,
+            uvp, v2f(uvp.x + uvs.x, uvp.y), v2f_add(uvp, uvs), v2f(uvp.x, uvp.y + uvs.y));
 }
 
 void renderer_draw(renderer_t *r)
@@ -93,7 +91,7 @@ void renderer_draw(renderer_t *r)
     glUseProgram(r->program);
     glBufferSubData(
             GL_ARRAY_BUFFER, 0, r->vertex_count * sizeof *r->vertices, r->vertices);
-    glDrawArrays(GL_TRIANGLE_STRIP, 0, (GLsizei) r->vertex_count);
+    glDrawArrays(GL_TRIANGLES, 0, (GLsizei) r->vertex_count);
     r->vertex_count = 0;
 }
 

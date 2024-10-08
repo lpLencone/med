@@ -10,20 +10,19 @@ static void ftr_init_texture_atlas(ft_renderer_t *ftr, FT_Face face);
 
 void ftr_init(ft_renderer_t *ftr, FT_Face face)
 {
-    // char const *vert_filenames[] = { "shaders/free_glyph.vert", "shaders/project.glsl" };
-    char const *vert_filenames[] = { "shaders/shader.vert", "shaders/project.glsl" };
-    char const *frag_filename = "shaders/color.frag";
+    char const *vert_filenames[] = { "shaders/basic.vert", "shaders/project.glsl" };
+    char const *frag_filename = "shaders/rainbow.frag";
 
     renderer_init(&ftr->r, slice_from(vert_filenames, 2), slice_from(&frag_filename, 1));
-
     renderer_use(&ftr->r);
     ftr_init_texture_atlas(ftr, face);
 }
 
 void ftr_draw(ft_renderer_t *ftr)
 {
-    renderer_use(&ftr->r);
-    glBindTexture(GL_TEXTURE_2D, ftr->atlas);
+    // renderer_use(&ftr->r);
+    // glActiveTexture(GL_TEXTURE0);
+    // glBindTexture(GL_TEXTURE_2D, ftr->atlas);
     renderer_draw(&ftr->r);
 }
 
@@ -38,18 +37,16 @@ void ftr_render_text(
         }
 
         ft_glyph_metrics_t metrics = ftr->metrics[(int) text[i]];
-        float x2 = metrics.bl + pos.x;
-        float y2 = -metrics.bt - pos.y;
+        float x = metrics.bl + pos.x;
+        float y = metrics.bt + pos.y;
         float w = metrics.bw;
         float h = metrics.bh;
 
         pos.x += metrics.ax;
         pos.y += metrics.ay;
 
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, ftr->atlas);
         renderer_image_rect(
-                &ftr->r, v2f(x2, -y2), v2f(w, -h), v2f(metrics.tx, 0.0),
+                &ftr->r, v2f(x, y), v2f(w, -h), v2f(metrics.tx, 0.0),
                 v2f(metrics.bw / ftr->atlas_w, metrics.bh / ftr->atlas_h), color);
     }
 }
@@ -155,11 +152,9 @@ static void ftr_init_texture_atlas(ft_renderer_t *ftr, FT_Face face)
 
     int x = 0;
     for (int i = 32; i < 128; i++) {
-
         if ((error = FT_Load_Char(face, i, FT_LOAD_RENDER)) != FT_Err_Ok) {
             panic("Error loading char %c: %s\n", i, FT_Error_String(error));
         }
-
         FT_GlyphSlot gs = face->glyph;
         if ((error = FT_Render_Glyph(gs, FT_RENDER_MODE_NORMAL)) != FT_Err_Ok) {
             panic("Error rendering glyph: %s\n", FT_Error_String(error));
