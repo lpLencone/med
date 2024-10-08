@@ -14,6 +14,7 @@ enum cursor_uniform {
 
 typedef struct {
     renderer_t r;
+    GLuint program;
 } cursor_renderer_t;
 
 void cr_init(cursor_renderer_t *cr);

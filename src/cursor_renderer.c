@@ -1,3 +1,4 @@
+#include "program_object.h"
 #include "cursor_renderer.h"
 #include "lib.h"
 
@@ -5,7 +6,8 @@ void cr_init(cursor_renderer_t *cr)
 {
     char const *vert_filenames[] = { "shaders/cursor.vert", "shaders/project.glsl" };
     char const *frag_filename = "shaders/cursor.frag";
-    renderer_init(&cr->r, slice_from(vert_filenames, 2), slice_from(&frag_filename, 1));
+    program_object_link(&cr->program, vert_filenames, 2, &frag_filename, 1);
+    renderer_init(&cr->r);
 }
 
 void cr_draw(cursor_renderer_t *cr, v2f_t cur_pos, v2f_t cur_size, v4f_t color)
@@ -16,19 +18,21 @@ void cr_draw(cursor_renderer_t *cr, v2f_t cur_pos, v2f_t cur_size, v4f_t color)
 
 void cr_use(cursor_renderer_t const *cr)
 {
-    renderer_use(&cr->r);    
+    program_object_use(cr->program);
 }
 
 static char const *uniform_name(enum cursor_uniform u);
 
 void cr_set_float(cursor_renderer_t const *cr, enum cursor_uniform u, float f)
 {
-    renderer_uniform1f(&cr->r, uniform_name(u), f);
+    cr_use(cr);
+    program_object_uniform1f(cr->program, uniform_name(u), f);
 }
 
 void cr_set_v2f(cursor_renderer_t const *cr, enum cursor_uniform u, v2f_t v)
 {
-    renderer_uniform2f(&cr->r, uniform_name(u), v2(v));
+    cr_use(cr);
+    program_object_uniform2f(cr->program, uniform_name(u), v2(v));
 }
 
 static char const *uniform_name(enum cursor_uniform u)

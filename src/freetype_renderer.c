@@ -4,6 +4,7 @@
 #include <stddef.h>
 
 #include "lib.h"
+#include "program_object.h"
 #include "stb_image.h"
 
 static void ftr_init_texture_atlas(ft_renderer_t *ftr, FT_Face face);
@@ -11,18 +12,24 @@ static void ftr_init_texture_atlas(ft_renderer_t *ftr, FT_Face face);
 void ftr_init(ft_renderer_t *ftr, FT_Face face)
 {
     char const *vert_filenames[] = { "shaders/basic.vert", "shaders/project.glsl" };
-    char const *frag_filename = "shaders/rainbow.frag";
+    char const *rainbow_filename = "shaders/rainbow.frag";
+    char const *image_filename = "shaders/basic_image.frag";
 
-    renderer_init(&ftr->r, slice_from(vert_filenames, 2), slice_from(&frag_filename, 1));
-    renderer_use(&ftr->r);
+    renderer_init(&ftr->r);
+
+    program_object_link(
+            &ftr->program[FTP_RAINBOW], vert_filenames, 2, &rainbow_filename, 1);
+    program_object_link(&ftr->program[FTP_COLOR], vert_filenames, 2, &image_filename, 1);
+
     ftr_init_texture_atlas(ftr, face);
+    ftr->current_program = -1;
 }
 
 void ftr_draw(ft_renderer_t *ftr)
 {
-    // renderer_use(&ftr->r);
-    // glActiveTexture(GL_TEXTURE0);
-    // glBindTexture(GL_TEXTURE_2D, ftr->atlas);
+    ftr_use(ftr, ftr->current_program);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, ftr->atlas);
     renderer_draw(&ftr->r);
 }
 
@@ -93,21 +100,28 @@ float ftr_char_width(ft_renderer_t *ftr, char c)
     return metrics.ax;
 }
 
-void ftr_use(ft_renderer_t const *ftr)
+void ftr_use(ft_renderer_t *ftr, enum ft_program p)
 {
-    renderer_use(&ftr->r);
+    if (p < 0 || FTP_COUNT <= p) {
+        panic("Tried to set invalid program: %d. Maybe you forgot to set a shader before drawing or set a uniform?",
+              p);
+    }
+    ftr->current_program = p;
+    program_object_use(ftr->program[p]);
 }
 
 static char const *uniform_name(enum ft_uniform ftu);
 
-void ftr_set_float(ft_renderer_t const *ftr, enum ft_uniform u, float f)
+void ftr_set_float(ft_renderer_t *ftr, enum ft_uniform u, float f)
 {
-    renderer_uniform1f(&ftr->r, uniform_name(u), f);
+    ftr_use(ftr, ftr->current_program);
+    program_object_uniform1f(ftr->program[ftr->current_program], uniform_name(u), f);
 }
 
-void ftr_set_v2f(ft_renderer_t const *ftr, enum ft_uniform u, v2f_t v)
+void ftr_set_v2f(ft_renderer_t *ftr, enum ft_uniform u, v2f_t v)
 {
-    renderer_uniform2f(&ftr->r, uniform_name(u), v2(v));
+    ftr_use(ftr, ftr->current_program);
+    program_object_uniform2f(ftr->program[ftr->current_program], uniform_name(u), v2(v));
 }
 
 static void ftr_init_texture_atlas(ft_renderer_t *ftr, FT_Face face)

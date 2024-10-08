@@ -1,6 +1,5 @@
 #include "renderer.h"
 
-#include "glslinker.h"
 #include "lib.h"
 
 enum vertex_attr {
@@ -9,13 +8,9 @@ enum vertex_attr {
     VERTEX_ATTR_COLOR,
 };
 
-void renderer_init(renderer_t *r, slice_t vert_filenames, slice_t frag_filenames)
+void renderer_init(renderer_t *r)
 {
     r->vertex_count = 0;
-
-    if (!glslink_program(&r->program, vert_filenames, frag_filenames)) {
-        panic("Could not load freetype renderer shaders.");
-    }
 
     glGenVertexArrays(1, &r->vao);
     glBindVertexArray(r->vao);
@@ -88,26 +83,8 @@ void renderer_draw(renderer_t *r)
 {
     glBindVertexArray(r->vao);
     glBindBuffer(GL_ARRAY_BUFFER, r->vbo);
-    glUseProgram(r->program);
     glBufferSubData(
             GL_ARRAY_BUFFER, 0, r->vertex_count * sizeof *r->vertices, r->vertices);
     glDrawArrays(GL_TRIANGLES, 0, (GLsizei) r->vertex_count);
     r->vertex_count = 0;
-}
-
-void renderer_use(renderer_t const *r)
-{
-    glUseProgram(r->program);
-}
-
-void renderer_uniform1f(renderer_t const *r, char const *u_name, float f)
-{
-    glUseProgram(r->program);
-    glUniform1f(glGetUniformLocation(r->program, u_name), f);
-}
-
-void renderer_uniform2f(renderer_t const *r, char const *u_name, float f, float g)
-{
-    glUseProgram(r->program);
-    glUniform2f(glGetUniformLocation(r->program, u_name), f, g);
 }

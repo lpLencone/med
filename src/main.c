@@ -125,13 +125,14 @@ void render_scene(float dt)
         cr_set(&cr, CU_TIME, time);
         cr_set(&cr, CU_SCALE, g_scale);
         cr_set(&cr, CU_CAMERA, camera_pos);
+        cr_set(&cr, CU_RESOLUTION, resolution);
         cr_draw(&cr, cur_pos, cur_size, v4fs(1.0));
-    }
 
-    {
+        ftr_use(&ftr, FTP_RAINBOW);
         ftr_set(&ftr, FTU_TIME, time);
         ftr_set(&ftr, FTU_SCALE, g_scale);
         ftr_set(&ftr, FTU_CAMERA, camera_pos);
+        ftr_set(&ftr, FTU_RESOLUTION, resolution);
         ftr_render_text(&ftr, editor.string.data, editor.string.length, v2fs(0), v4fs(1));
         ftr_draw(&ftr);
     }
@@ -207,6 +208,7 @@ int main(int argc, char *argv[])
     }
 
     ftr_init(&ftr, face);
+    ftr_use(&ftr, FTP_RAINBOW);
     cr_init(&cr);
     size_t cur_last_pos = editor.cursor;
 
@@ -231,8 +233,6 @@ int main(int argc, char *argv[])
                         SDL_GetWindowSize(window, &width, &height);
                         glViewport(0, 0, width, height);
                         resolution = v2f(width, height);
-                        ftr_set(&ftr, FTU_RESOLUTION, resolution);
-                        cr_set(&cr, CU_RESOLUTION, resolution);
                     }
                 } break;
 

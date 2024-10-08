@@ -8,6 +8,12 @@
 #include "la.h"
 #include "renderer.h"
 
+enum ft_program {
+    FTP_RAINBOW,
+    FTP_COLOR,
+    FTP_COUNT,
+};
+
 enum ft_uniform {
     FTU_TIME,
     FTU_RESOLUTION,
@@ -28,6 +34,9 @@ typedef struct {
 
 typedef struct {
     renderer_t r;
+
+    GLuint program[FTP_COUNT];
+    enum ft_program current_program;
 
     GLuint atlas;
     FT_UInt atlas_w;
@@ -53,11 +62,11 @@ float ftr_get_max_line_width(ft_renderer_t *ftr, char const *text, size_t text_s
 
 float ftr_char_width(ft_renderer_t *ftr, char c);
 
-void ftr_use(ft_renderer_t const *ftr);
+void ftr_use(ft_renderer_t *ftr, enum ft_program p);
 
 #define ftr_set(ftr, u, p) \
     _Generic(p, float: ftr_set_float, v2f_t: ftr_set_v2f)(ftr, u, p)
-void ftr_set_float(ft_renderer_t const *ftr, enum ft_uniform u, float f);
-void ftr_set_v2f(ft_renderer_t const *ftr, enum ft_uniform u, v2f_t v);
+void ftr_set_float(ft_renderer_t *ftr, enum ft_uniform u, float f);
+void ftr_set_v2f(ft_renderer_t *ftr, enum ft_uniform u, v2f_t v);
 
 #endif // FREETYPE_RENDERER_H_

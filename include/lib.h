@@ -23,11 +23,10 @@
     #define min(a, b) ((a) < (b) ? (a) : (b))
 #endif // min
 
-typedef struct {
-    void const *data;
-    size_t length;
-} slice_t;
-
-slice_t slice_from(void const *data, size_t length);
+#define defer(expr) \
+    do {            \
+        expr;       \
+        goto defer; \
+    } while (0)
 
 #endif // LIB_H_
