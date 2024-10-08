@@ -22,7 +22,6 @@ typedef struct {
     v2f_t uv_pos;
     v2f_t uv_size;
     v4f_t fg;
-    v4f_t bg;
 } ft_glyph_t;
 
 typedef struct {
@@ -51,7 +50,8 @@ typedef struct {
 
     ft_glyph_metrics_t metrics[128];
 
-    // TODO: check whether all of the uniforms were set at least once before the first call to ftr_flush; panic otherwise
+    // TODO: check whether all of the uniforms were set at least once before the first
+    // call to ftr_flush; panic otherwise
 } ft_renderer_t;
 
 void ftr_init(
@@ -61,8 +61,7 @@ void ftr_init(
 void ftr_flush(ft_renderer_t *ftr);
 
 void ftr_render_text(
-        ft_renderer_t *ftr, char const *text, size_t text_size, v2f_t pos, v4f_t fg,
-        v4f_t bg);
+        ft_renderer_t *ftr, char const *text, size_t text_size, v2f_t pos, v4f_t fg);
 
 v2f_t ftr_cursor_pos(ft_renderer_t *ftr, char const *text, size_t text_size);
 

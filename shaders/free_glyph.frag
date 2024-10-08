@@ -5,7 +5,6 @@ uniform float u_time;
 uniform vec2 u_resolution;
 
 in vec4 v_fg;
-in vec4 v_bg;
 in vec2 v_uv;
 in vec2 v_uv_pos;
 in vec2 v_uv_size;
@@ -25,5 +24,5 @@ void main() {
     vec2 frag_uv = gl_FragCoord.xy / u_resolution;
     vec4 rainbow = vec4(hsl2rgb(vec3(frag_uv.x + frag_uv.y + u_time, 0.5, 0.5)), 1.0);
 
-    gl_FragColor = v_bg * (1 - tc.x) + tc.x * v_fg * rainbow;
+    gl_FragColor = tc.x * v_fg * rainbow;
 }

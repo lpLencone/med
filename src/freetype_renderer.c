@@ -37,8 +37,7 @@ void ftr_flush(ft_renderer_t *ftr)
 }
 
 void ftr_render_text(
-        ft_renderer_t *ftr, char const *text, size_t text_size, v2f_t pos, v4f_t fg,
-        v4f_t bg)
+        ft_renderer_t *ftr, char const *text, size_t text_size, v2f_t pos, v4f_t fg)
 {
     for (size_t i = 0; i < text_size; i++) {
         if (text[i] == '\n') {
@@ -63,7 +62,6 @@ void ftr_render_text(
             .uv_pos = v2f(metrics.tx, 0.0),
             .uv_size = v2f(metrics.bw / ftr->atlas_w, metrics.bh / ftr->atlas_h),
             .fg = fg,
-            .bg = bg,
         };
     }
 }
@@ -214,7 +212,6 @@ enum ft_glyph_attr {
     GLYPH_ATTR_UV_POS,
     GLYPH_ATTR_UV_SIZE,
     GLYPH_ATTR_FG,
-    GLYPH_ATTR_BG,
     GLYPH_ATTR_COUNT,
 };
 
@@ -250,14 +247,9 @@ static ft_glyph_attr_t glyph_attrs[GLYPH_ATTR_COUNT] = {
         .size = 4,
         .type = GL_FLOAT,
     },
-    [GLYPH_ATTR_BG] = {
-        .ptr = (GLvoid *) offsetof(ft_glyph_t, bg),
-        .size = 4,
-        .type = GL_FLOAT,
-    },
 };
 
-static_assert(GLYPH_ATTR_COUNT == 6, "The amount of ftglyph attributes has changed.");
+static_assert(GLYPH_ATTR_COUNT == 5, "The amount of ft_glyph attributes has changed.");
 
 static void ftr_init_buffers(ft_renderer_t *ftr)
 {
