@@ -14,27 +14,37 @@ void cr_draw(cursor_renderer_t *cr, v2f_t cur_pos, v2f_t cur_size, v4f_t color)
     renderer_draw(&cr->r);
 }
 
-void cr_set_time(cursor_renderer_t *cr, float time)
+void cr_use(cursor_renderer_t const *cr)
 {
-    renderer_uniform1f(&cr->r, "u_time", time);
+    renderer_use(&cr->r);    
 }
 
-void cr_set_time_moved(cursor_renderer_t *cr, float time_moved)
+static char const *uniform_name(enum cursor_uniform u);
+
+void cr_set_float(cursor_renderer_t const *cr, enum cursor_uniform u, float f)
 {
-    renderer_uniform1f(&cr->r, "u_time_moved", time_moved);
+    renderer_uniform1f(&cr->r, uniform_name(u), f);
 }
 
-void cr_set_scale(cursor_renderer_t *cr, float scale)
+void cr_set_v2f(cursor_renderer_t const *cr, enum cursor_uniform u, v2f_t v)
 {
-    renderer_uniform1f(&cr->r, "u_scale", scale);
+    renderer_uniform2f(&cr->r, uniform_name(u), v2(v));
 }
 
-void cr_set_camera(cursor_renderer_t *cr, v2f_t camera)
+static char const *uniform_name(enum cursor_uniform u)
 {
-    renderer_uniform2f(&cr->r, "u_camera", v2(camera));
-}
-
-void cr_set_resolution(cursor_renderer_t *cr, v2f_t resolution)
-{
-    renderer_uniform2f(&cr->r, "u_resolution", v2(resolution));
+    switch (u) {
+        case CU_TIME:
+            return "u_time";
+        case CU_TIME_MOVED:
+            return "u_time_moved";
+        case CU_SCALE:
+            return "u_scale";
+        case CU_CAMERA:
+            return "u_camera";
+        case CU_RESOLUTION:
+            return "u_resolution";
+        default:
+            panic("Unreachable");
+    }
 }

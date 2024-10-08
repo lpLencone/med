@@ -40,6 +40,7 @@ void renderer_image_rect(renderer_t *r, v2f_t p, v2f_t size);
 
 void renderer_draw(renderer_t *r);
 
+void renderer_use(renderer_t const *r);
 void renderer_uniform1f(renderer_t const *r, char const *u_name, float f);
 void renderer_uniform2f(renderer_t const *r, char const *u_name, float f, float g);
 void renderer_uniform4f(

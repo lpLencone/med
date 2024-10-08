@@ -96,6 +96,11 @@ void renderer_draw(renderer_t *r)
     r->vertex_count = 0;
 }
 
+void renderer_use(renderer_t const *r)
+{
+    glUseProgram(r->program);
+}
+
 void renderer_uniform1f(renderer_t const *r, char const *u_name, float f)
 {
     glUseProgram(r->program);

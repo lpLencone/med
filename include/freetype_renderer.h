@@ -45,13 +45,13 @@ typedef struct {
     FT_UInt atlas_h;
     FT_UInt atlas_low;
 
-    GLint u[FTU_COUNT];
-
 #define GLYPH_BUFFER_CAP 1024 * 1024
     ft_glyph_t buffer[GLYPH_BUFFER_CAP];
     size_t count;
 
     ft_glyph_metrics_t metrics[128];
+
+    // TODO: check whether all of the uniforms were set at least once before the first call to ftr_flush; panic otherwise
 } ft_renderer_t;
 
 void ftr_init(
@@ -71,5 +71,13 @@ float ftr_get_widest_line_width(
         size_t line_count);
 
 float ftr_char_width(ft_renderer_t *ftr, char c);
+
+void ftr_use(ft_renderer_t const *ftr);
+
+#define ftr_set(ftr, u, p) \
+    _Generic(p, float: ftr_set_float, v2f_t: ftr_set_v2f)(ftr, u, p)
+
+void ftr_set_float(ft_renderer_t const *ftr, enum ft_uniform u, float f);
+void ftr_set_v2f(ft_renderer_t const *ftr, enum ft_uniform u, v2f_t v);
 
 #endif // FREETYPE_RENDERER_H_

@@ -116,18 +116,16 @@ void render_scene(float dt)
 
     float const time = SDL_GetTicks() / 1000.0;
     {
-        glUseProgram(cr.r.program);
-        cr_set_time(&cr, time);
-        cr_set_scale(&cr, g_scale);
-        cr_set_camera(&cr, camera_pos);
+        cr_set(&cr, CU_TIME, time);
+        cr_set(&cr, CU_SCALE, g_scale);
+        cr_set(&cr, CU_CAMERA, camera_pos);
         cr_draw(&cr, cur_pos, cur_size, v4fs(1.0));
     }
 
     {
-        glUseProgram(ftr.shader);
-        glUniform2f(ftr.u[FTU_CAMERA], v2(camera_pos));
-        glUniform1f(ftr.u[FTU_TIME], time);
-        glUniform1f(ftr.u[FTU_SCALE], g_scale);
+        ftr_set(&ftr, FTU_TIME, time);
+        ftr_set(&ftr, FTU_SCALE, g_scale);
+        ftr_set(&ftr, FTU_CAMERA, camera_pos);
         ftr_render_text(
                 &ftr, editor.string.data, editor.string.length, v2fs(0.0), v4fs(1.0),
                 v4fs(0.0));
@@ -193,7 +191,7 @@ int main(int argc, char *argv[])
     FT_Face face = { 0 };
     error = FT_New_Face(library, FONT_FREE_FILENAME, 0, &face);
     if (error == FT_Err_Cannot_Open_Resource) {
-        panic("Could not open font filename: " FONT_FREE_FILENAME);
+        panic("Could not open font filename: %s", FONT_FREE_FILENAME);
     } else if (error != FT_Err_Ok) {
         panic("Could not create face: %d - %s", error, FT_Error_String(error));
     }
@@ -217,7 +215,7 @@ int main(int argc, char *argv[])
 
         if (editor.cursor != cur_last_pos) {
             cur_last_pos = editor.cursor;
-            cr_set_time_moved(&cr, now);
+            cr_set(&cr, CU_TIME_MOVED, now);
         }
 
         SDL_Event event = { 0 };
@@ -229,9 +227,8 @@ int main(int argc, char *argv[])
                         SDL_GetWindowSize(window, &width, &height);
                         glViewport(0, 0, width, height);
                         resolution = v2f(width, height);
-                        glUseProgram(ftr.shader);
-                        glUniform2f(ftr.u[FTU_RESOLUTION], v2(resolution));
-                        cr_set_resolution(&cr, resolution);
+                        ftr_set(&ftr, FTU_RESOLUTION, resolution);
+                        cr_set(&cr, CU_RESOLUTION, resolution);
                     }
                 } break;
 

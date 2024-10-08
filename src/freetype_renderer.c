@@ -8,7 +8,6 @@
 
 static void ftr_init_texture_atlas(ft_renderer_t *ftr, FT_Face face);
 static void ftr_init_buffers(ft_renderer_t *ftr);
-static void ftr_get_uniform_locations(GLuint program, GLint locations[FTU_COUNT]);
 
 void ftr_init(
         ft_renderer_t *ftr, FT_Face face, char const *vert_filename,
@@ -26,7 +25,6 @@ void ftr_init(
 
     ftr_init_texture_atlas(ftr, face);
     ftr_init_buffers(ftr);
-    ftr_get_uniform_locations(ftr->shader, ftr->u);
 }
 
 void ftr_flush(ft_renderer_t *ftr)
@@ -117,6 +115,25 @@ float ftr_char_width(ft_renderer_t *ftr, char c)
 {
     ft_glyph_metrics_t metrics = ftr->metrics[(int) c];
     return metrics.ax;
+}
+
+void ftr_use(ft_renderer_t const *ftr)
+{
+    glUseProgram(ftr->shader);
+}
+
+static char const *uniform_name(enum ft_uniform ftu);
+
+void ftr_set_float(ft_renderer_t const *ftr, enum ft_uniform u, float f)
+{
+    glUseProgram(ftr->shader);
+    glUniform1f(glGetUniformLocation(ftr->shader, uniform_name(u)), f);
+}
+
+void ftr_set_v2f(ft_renderer_t const *ftr, enum ft_uniform u, v2f_t v)
+{
+    glUseProgram(ftr->shader);
+    glUniform2f(glGetUniformLocation(ftr->shader, uniform_name(u)), v2(v));
 }
 
 static void ftr_init_texture_atlas(ft_renderer_t *ftr, FT_Face face)
@@ -289,14 +306,3 @@ static char const *uniform_name(enum ft_uniform ftu)
 }
 
 static_assert(FTU_COUNT == 4, "The amount of freetype renderer uniforms has changed.");
-
-static void ftr_get_uniform_locations(GLuint program, GLint locations[FTU_COUNT])
-{
-    glUseProgram(program);
-    for (enum ft_uniform ftu = 0; ftu < FTU_COUNT; ftu++) {
-        locations[ftu] = glGetUniformLocation(program, uniform_name(ftu));
-        if (locations[ftu] == -1) {
-            eprintf("Uniform %d unavailable. Program won't render correctly.\n", ftu);
-        }
-    }
-}
