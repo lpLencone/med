@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -13,9 +14,6 @@
 #include "freetype_renderer.h"
 #include "la.h"
 #include "lib.h"
-
-#define STB_IMAGE_IMPLEMENTATION
-#include "stb_image.h"
 
 #define SCREEN_WIDTH  800
 #define SCREEN_HEIGHT 600
@@ -138,6 +136,10 @@ void render_scene(float dt)
     }
 }
 
+static void initialize_glew(void);
+static void initialize_sdl(SDL_Window **window);
+static void initialize_freetype(FT_Face *face);
+
 int main(int argc, char *argv[])
 {
     assert(argc == 2);
@@ -148,72 +150,21 @@ int main(int argc, char *argv[])
         fclose(fp);
     }
 
-    scc(SDL_Init(SDL_INIT_VIDEO));
-    SDL_Window *window = scp(SDL_CreateWindow(
-            "med", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, SCREEN_WIDTH,
-            SCREEN_HEIGHT, SDL_WINDOW_RESIZABLE | SDL_WINDOW_OPENGL));
+    SDL_Window *window;
+    initialize_sdl(&window);
 
-    {
-        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
-        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
-        SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
-        int major, minor;
-        SDL_GL_GetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, &major);
-        SDL_GL_GetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, &minor);
-        printf("GL Version %d.%d\n", major, minor);
-
-        scp(SDL_GL_CreateContext(window));
-
-        GLenum code;
-        if ((code = glewInit()) != GLEW_OK) {
-            panic("Could not initialize glew: %s", glewGetErrorString(code));
-        }
-
-        glEnable(GL_BLEND);
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-        if (GLEW_ARB_debug_output) {
-            glEnable(GL_DEBUG_OUTPUT);
-            glDebugMessageCallback(MessageCallback, 0);
-        } else {
-            eprintf("Warning: GLEW_ARB_debug_output is not available.\n");
-        }
-
-        if (!GLEW_ARB_draw_instanced) {
-            panic("Error: GLEW_ARB_draw_instanced not supported.");
-        }
-
-        if (!GLEW_ARB_instanced_arrays) {
-            panic("Error: GLEW_ARB_instanced_arrays not supported.");
-        }
-    }
-
-    FT_Library library = { 0 };
-    FT_Error error = FT_Init_FreeType(&library);
-    if (FT_Err_Ok != error) {
-        panic("Could not initialize the FreeType library: %s", FT_Error_String(error));
-    }
-
+    initialize_glew();
+    
     FT_Face face = { 0 };
-    error = FT_New_Face(library, FONT_FREE_FILENAME, 0, &face);
-    if (error == FT_Err_Cannot_Open_Resource) {
-        panic("Could not open font filename: %s", FONT_FREE_FILENAME);
-    } else if (error != FT_Err_Ok) {
-        panic("Could not create face: %d - %s", error, FT_Error_String(error));
-    }
-
-    FT_UInt pixel_size = PIXEL_SIZE;
-    error = FT_Set_Pixel_Sizes(face, 0, pixel_size);
-    if (FT_Err_Ok != error) {
-        panic("Could not set pixel sizes: %s", FT_Error_String(error));
-    }
+    initialize_freetype(&face);
 
     ftr_init(&ftr, face);
     ftr_use(&ftr, FTP_RAINBOW);
     cr_init(&cr);
-    size_t cur_last_pos = editor.cursor;
 
-    bool quit = false;
+    size_t cur_last_pos = editor.cursor;
     float dt, now, last_frame = 0.0;
+    bool quit = false;
     while (!quit) {
         now = SDL_GetTicks() / 1000.0;
         dt = now - last_frame;
@@ -321,4 +272,69 @@ int main(int argc, char *argv[])
     SDL_DestroyWindow(window);
 
     return 0;
+}
+
+static void initialize_sdl(SDL_Window **window)
+{
+    scc(SDL_Init(SDL_INIT_VIDEO));
+    *window = scp(SDL_CreateWindow(
+            "med", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, SCREEN_WIDTH,
+            SCREEN_HEIGHT, SDL_WINDOW_RESIZABLE | SDL_WINDOW_OPENGL));
+
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+    int major, minor;
+    SDL_GL_GetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, &major);
+    SDL_GL_GetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, &minor);
+    printf("GL Version %d.%d\n", major, minor);
+
+    scp(SDL_GL_CreateContext(*window));
+}
+
+static void initialize_glew(void)
+{
+    GLenum code;
+    if ((code = glewInit()) != GLEW_OK) {
+        panic("Could not initialize glew: %s", glewGetErrorString(code));
+    }
+
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    if (GLEW_ARB_debug_output) {
+        glEnable(GL_DEBUG_OUTPUT);
+        glDebugMessageCallback(MessageCallback, 0);
+    } else {
+        eprintf("Warning: GLEW_ARB_debug_output is not available.\n");
+    }
+
+    if (!GLEW_ARB_draw_instanced) {
+        panic("Error: GLEW_ARB_draw_instanced not supported.");
+    }
+
+    if (!GLEW_ARB_instanced_arrays) {
+        panic("Error: GLEW_ARB_instanced_arrays not supported.");
+    }
+}
+
+static void initialize_freetype(FT_Face *face)
+{
+    FT_Library library = { 0 };
+    FT_Error error = FT_Init_FreeType(&library);
+    if (FT_Err_Ok != error) {
+        panic("Could not initialize the FreeType library: %s", FT_Error_String(error));
+    }
+
+    error = FT_New_Face(library, FONT_FREE_FILENAME, 0, face);
+    if (error == FT_Err_Cannot_Open_Resource) {
+        panic("Could not open font filename: %s", FONT_FREE_FILENAME);
+    } else if (error != FT_Err_Ok) {
+        panic("Could not create face: %d - %s", error, FT_Error_String(error));
+    }
+
+    FT_UInt pixel_size = PIXEL_SIZE;
+    error = FT_Set_Pixel_Sizes(*face, 0, pixel_size);
+    if (FT_Err_Ok != error) {
+        panic("Could not set pixel sizes: %s", FT_Error_String(error));
+    }
 }

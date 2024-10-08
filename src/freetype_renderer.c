@@ -5,7 +5,6 @@
 
 #include "lib.h"
 #include "program_object.h"
-#include "stb_image.h"
 
 static void ftr_init_texture_atlas(ft_renderer_t *ftr, FT_Face face);
 
