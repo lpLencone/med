@@ -71,16 +71,22 @@ static cursor_renderer_t cr = { 0 };
 
 void render_scene(float dt)
 {
-    float widest_line_width = 0.0;
+    float max_line_width = 0.0;
     {
         size_t line_size = ftr.atlas_h * g_scale;
-        size_t lines_count = resolution.y / line_size;
+        size_t line_count = resolution.y / line_size;
         size_t line_start =
-                max((int) editor_get_cursor_row(&editor) - (int) (lines_count / 2), 0);
-        widest_line_width = ftr_get_widest_line_width(
-                &ftr, editor.string.data, editor.string.length, line_start, lines_count);
+                max((int) editor_get_cursor_row(&editor) - (int) (line_count / 2), 0);
+        size_t line_end =
+                min(editor_get_cursor_row(&editor) + line_count / 2,
+                    editor_get_line_count(&editor));
+        size_t start = editor_nth_char_index(&editor, '\n', line_start);
+        size_t end = editor_nth_char_index(&editor, '\n', line_end + 1);
+
+        max_line_width =
+                ftr_get_max_line_width(&ftr, editor.string.data + start, end - start);
         float g_scale_target =
-                max(MIN_SCALE, min(MAX_SCALE, 0.6 * resolution.x / widest_line_width));
+                max(MIN_SCALE, min(MAX_SCALE, 0.6 * resolution.x / max_line_width));
         float g_scale_vel = g_scale_target - g_scale;
         g_scale += g_scale_vel * 2.0 * dt;
     }
@@ -95,12 +101,12 @@ void render_scene(float dt)
     }
 
     {
-        float const line_half_width = widest_line_width / 2.0;
+        float const line_half_width = max_line_width / 2.0;
         float const RIGHT_OFFSET = 0.15;
         float const LEFT_OFFSET = 0.05;
         float const rightmost =
                 max(line_half_width,
-                    widest_line_width - (0.5 - RIGHT_OFFSET) * resolution.x / g_scale);
+                    max_line_width - (0.5 - RIGHT_OFFSET) * resolution.x / g_scale);
         float const leftmost =
                 min(line_half_width, (0.5 - LEFT_OFFSET) * resolution.x / g_scale);
 
@@ -128,7 +134,7 @@ void render_scene(float dt)
         ftr_set(&ftr, FTU_CAMERA, camera_pos);
         ftr_render_text(
                 &ftr, editor.string.data, editor.string.length, v2fs(0.0), v4fs(1.0));
-        ftr_flush(&ftr);
+        ftr_draw(&ftr);
     }
 }
 
@@ -201,7 +207,7 @@ int main(int argc, char *argv[])
         panic("Could not set pixel sizes: %s", FT_Error_String(error));
     }
 
-    ftr_init(&ftr, face, "shaders/free_glyph.vert", "shaders/free_glyph.frag");
+    ftr_init(&ftr, face);
     cr_init(&cr);
     size_t cur_last_pos = editor.cursor;
 

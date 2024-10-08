@@ -9,26 +9,26 @@
 static void ftr_init_texture_atlas(ft_renderer_t *ftr, FT_Face face);
 static void ftr_init_buffers(ft_renderer_t *ftr);
 
-void ftr_init(
-        ft_renderer_t *ftr, FT_Face face, char const *vert_filename,
-        char const *frag_filename)
+void ftr_init(ft_renderer_t *ftr, FT_Face face)
 {
     ftr->count = 0;
 
+    char const *vert_filenames[] = { "shaders/free_glyph.vert", "shaders/project.glsl" };
+    char const *frag_filename = "shaders/free_glyph.frag";
+
     if (!glslink_program(
-                &ftr->shader,
-                slice_from((char const *[]) { vert_filename, "shaders/project.glsl" }, 2),
+                &ftr->shader, slice_from(vert_filenames, 2),
                 slice_from(&frag_filename, 1))) {
         panic("Could not load freetype renderer shaders.");
     }
     glUseProgram(ftr->shader);
-
     ftr_init_texture_atlas(ftr, face);
     ftr_init_buffers(ftr);
 }
 
-void ftr_flush(ft_renderer_t *ftr)
+void ftr_draw(ft_renderer_t *ftr)
 {
+    glUseProgram(ftr->shader);
     glBindVertexArray(ftr->vao);
     glBindBuffer(GL_ARRAY_BUFFER, ftr->vbo);
     glBufferSubData(GL_ARRAY_BUFFER, 0, ftr->count * sizeof *ftr->buffer, ftr->buffer);
@@ -82,31 +82,24 @@ v2f_t ftr_cursor_pos(ft_renderer_t *ftr, char const *text, size_t text_size)
     return pos;
 }
 
-float ftr_get_widest_line_width(
-        ft_renderer_t *ftr, char const *text, size_t text_size, size_t line_start,
-        size_t line_count)
+float ftr_get_max_line_width(ft_renderer_t *ftr, char const *text, size_t text_size)
 {
-    size_t line;
-    size_t cursor;
-    for (cursor = 0, line = 0; cursor < text_size && line < line_start; cursor++) {
-        if (text[cursor] == '\n') {
-            line++;
-        }
-    }
     float width = 0;
-    float widest_width = 0;
-    for (; cursor < text_size && line < line_start + line_count; cursor++) {
+    float max_width = 0;
+    for (size_t cursor = 0; cursor < text_size; cursor++) {
         if (text[cursor] == '\n') {
-            line++;
+            if (width > max_width) {
+                max_width = width;
+            }
             width = 0;
             continue;
         }
         width += ftr_char_width(ftr, text[cursor]);
-        if (width > widest_width) {
-            widest_width = width;
-        }
     }
-    return widest_width;
+    if (width > max_width) {
+        max_width = width;
+    }
+    return max_width;
 }
 
 float ftr_char_width(ft_renderer_t *ftr, char c)

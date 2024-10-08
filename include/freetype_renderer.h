@@ -51,23 +51,20 @@ typedef struct {
     ft_glyph_metrics_t metrics[128];
 
     // TODO: check whether all of the uniforms were set at least once before the first
-    // call to ftr_flush; panic otherwise
+    // call to ftr_draw; panic otherwise
 } ft_renderer_t;
 
-void ftr_init(
-        ft_renderer_t *ftr, FT_Face face, char const *vert_filename,
-        char const *frag_filename);
+void ftr_init(ft_renderer_t *ftr, FT_Face face);
 
-void ftr_flush(ft_renderer_t *ftr);
+void ftr_draw(ft_renderer_t *ftr);
 
 void ftr_render_text(
         ft_renderer_t *ftr, char const *text, size_t text_size, v2f_t pos, v4f_t fg);
 
 v2f_t ftr_cursor_pos(ft_renderer_t *ftr, char const *text, size_t text_size);
 
-float ftr_get_widest_line_width(
-        ft_renderer_t *ftr, char const *text, size_t text_size, size_t line_start,
-        size_t line_count);
+float ftr_get_max_line_width(
+        ft_renderer_t *ftr, char const *text, size_t text_size);
 
 float ftr_char_width(ft_renderer_t *ftr, char c);
 
@@ -75,7 +72,6 @@ void ftr_use(ft_renderer_t const *ftr);
 
 #define ftr_set(ftr, u, p) \
     _Generic(p, float: ftr_set_float, v2f_t: ftr_set_v2f)(ftr, u, p)
-
 void ftr_set_float(ft_renderer_t const *ftr, enum ft_uniform u, float f);
 void ftr_set_v2f(ft_renderer_t const *ftr, enum ft_uniform u, v2f_t v);
 

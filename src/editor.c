@@ -119,6 +119,17 @@ void editor_save_to_file(editor_t const *e, FILE *fp)
 
 // Get editor Information
 
+size_t editor_get_line_count(editor_t const *e)
+{
+    size_t line = 0;
+    for (size_t cursor = 0; cursor < e->string.length; cursor++) {
+        if (e->string.data[cursor] == '\n') {
+            line++;
+        }
+    }
+    return line;
+}
+
 size_t editor_get_cursor_row(editor_t const *e)
 {
     return str_count_rev(&e->string, '\n', e->cursor);
@@ -136,5 +147,19 @@ char editor_get_char(editor_t const *e)
         return e->string.data[e->cursor];
     }
     return '\0';
+}
+
+size_t editor_nth_char_index(editor_t const *e, char c, size_t nth)
+{
+    size_t cursor = 0;
+    for (size_t char_nth = 0; cursor < e->string.length; cursor++) {
+        if (char_nth == nth) {
+            return cursor;
+        }
+        if (e->string.data[cursor] == c) {
+            char_nth++;
+        }
+    }
+    return cursor;
 }
 

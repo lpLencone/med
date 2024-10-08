@@ -35,6 +35,8 @@ void editor_load_file(editor_t *e, FILE *fp);
 void editor_save_to_file(editor_t const *e, FILE *fp);
 
 // Get editor Information
+size_t editor_get_line_count(editor_t const *e);
+size_t editor_nth_char_index(editor_t const *e, char c, size_t nth);
 size_t editor_get_cursor_row(editor_t const *e);
 size_t editor_get_cursor_col(editor_t const *e);
 char editor_get_char(editor_t const *e);
