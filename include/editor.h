@@ -5,16 +5,19 @@
 
 #include "str.h"
 
-// It would be nice to insert text anywhere in an editor buffer regardless of cursor
-// position.
+// It would be nice to insert text anywhere in a buffer regardless of cursor position.
 
 typedef struct {
-    str_t string;
+    str_t buffer;
     size_t cursor;
+    str_t pathname;
+
+    bool dired;
+    size_t dired_entry_count;
 } editor_t;
 
-editor_t editor_new(void);
 void editor_free(editor_t *e);
+void editor_new(editor_t *e);
 
 // Moving
 void editor_forward_char(editor_t *e);
@@ -31,8 +34,13 @@ void editor_delete_char(editor_t *e);
 void editor_newline(editor_t *e);
 
 // File I/O
-void editor_load_file(editor_t *e, FILE *fp);
-void editor_save_to_file(editor_t const *e, FILE *fp);
+void editor_load_file(editor_t *e);
+void editor_save_buffer(editor_t *e);
+
+// Dired functions
+
+void editor_dired(editor_t *e);
+void editor_dired_find_file(editor_t *e);
 
 // Get editor Information
 size_t editor_get_line_count(editor_t const *e);

@@ -1,10 +1,11 @@
 #include <assert.h>
+#include <dirent.h>
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 
 #include <GL/glew.h>
-#include <SDL2/SDL.h>
+#include <GLFW/glfw3.h>
 
 #include <freetype2/ft2build.h>
 #include FT_FREETYPE_H
@@ -17,8 +18,9 @@
 
 #define SCREEN_WIDTH  800
 #define SCREEN_HEIGHT 600
-
-#define PIXEL_SIZE 128
+#define MAX_SCALE     1
+#define MIN_SCALE     0.25
+#define PIXEL_SIZE    128
 
 // #define FONT_FREE_FILENAME "fonts/VictorMono-Regular.ttf"
 // #define FONT_FREE_FILENAME "fonts/Qdbettercomicsans-jEEeG.ttf"
@@ -29,25 +31,6 @@
 // #define FONT_FREE_FILENAME "fonts/ttf - Px (pixel
 // outline)/PxPlus_Rainbow100_re_132.ttf"
 
-void scc_(int code, int line)
-{
-    if (code < 0) {
-        eprintf("%d::SDL ERROR: %s\n", line, SDL_GetError());
-        exit(1);
-    }
-}
-#define scc(code) scc_(code, __LINE__)
-
-void *scp_(void *ptr, int line)
-{
-    if (ptr == NULL) {
-        eprintf("%d::SDL ERROR: %s\n", line, SDL_GetError());
-        exit(1);
-    }
-    return ptr;
-}
-#define scp(ptr) scp_(ptr, __LINE__)
-
 void MessageCallback(
         GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length,
         GLchar const *message, void const *userParam)
@@ -57,18 +40,30 @@ void MessageCallback(
             type == GL_DEBUG_TYPE_ERROR ? "GL ERROR" : "GL INFO ", message);
 }
 
-editor_t editor = { 0 };
-v2f_t camera_pos = { 0 };
-v2f_t resolution = { SCREEN_WIDTH, SCREEN_HEIGHT };
-float const MAX_SCALE = 1.0;
-float const MIN_SCALE = 0.25;
-float g_scale = MAX_SCALE;
-
+static editor_t editor = { 0 };
 static ft_renderer_t ftr = { 0 };
 static cursor_renderer_t cr = { 0 };
+static GLFWwindow *window = NULL;
+
+static void terminate(void)
+{
+    editor_free(&editor);
+    ftr_free(&ftr);
+    cr_free(&cr);
+    glfwDestroyWindow(window);
+    glfwTerminate();
+}
+
+v2f_t camera_pos = { 0 };
+v2f_t resolution = { SCREEN_WIDTH, SCREEN_HEIGHT };
+float cursor_time_moved = 0;
+float g_scale = MAX_SCALE;
 
 void render_scene(float dt)
 {
+    float const VEL = 3;
+    dt *= VEL;
+
     float max_line_width = 0.0;
     {
         size_t line_size = ftr.atlas_h * g_scale;
@@ -80,18 +75,18 @@ void render_scene(float dt)
                     editor_get_line_count(&editor));
         size_t start = editor_nth_char_index(&editor, '\n', line_start);
         size_t end = editor_nth_char_index(&editor, '\n', line_end + 1);
-
+        /////////////////////////////////////////////////////////////////////////////////
         max_line_width =
-                ftr_get_max_line_width(&ftr, editor.string.data + start, end - start);
+                ftr_get_max_line_width(&ftr, editor.buffer.data + start, end - start);
         float g_scale_target =
                 max(MIN_SCALE, min(MAX_SCALE, 0.6 * resolution.x / max_line_width));
         float g_scale_vel = g_scale_target - g_scale;
-        g_scale += g_scale_vel * 2.0 * dt;
+        g_scale += g_scale_vel * dt;
     }
 
     v2f_t cur_pos = { 0 }, cur_size = { 0 };
     {
-        cur_pos = ftr_cursor_pos(&ftr, editor.string.data, editor.cursor);
+        cur_pos = ftr_cursor_pos(&ftr, editor.buffer.data, editor.cursor);
         char c = editor_get_char(&editor);
         float cur_width = ftr_char_width(&ftr, (c != '\0' && c != '\n') ? c : ' ');
         cur_size = v2f(cur_width, ftr.atlas_h);
@@ -107,7 +102,7 @@ void render_scene(float dt)
                     max_line_width - (0.5 - RIGHT_OFFSET) * resolution.x / g_scale);
         float const leftmost =
                 min(line_half_width, (0.5 - LEFT_OFFSET) * resolution.x / g_scale);
-
+        ///////////////////////////////////////////////////////////////////////////////////
         float camera_target_x;
         {
             float a = max(cur_pos.x, leftmost);
@@ -115,181 +110,173 @@ void render_scene(float dt)
         }
         v2f_t camera_target = v2f(camera_target_x, cur_pos.y + cur_size.y / 2.0);
         v2f_t camera_vel = v2f_sub(camera_target, camera_pos);
-        camera_pos = v2f_add(camera_pos, v2f_mulf(camera_vel, 2.0 * dt));
+        camera_pos = v2f_add(camera_pos, v2f_mulf(camera_vel, dt));
     }
 
-    float const time = SDL_GetTicks() / 1000.0;
+    float const time = glfwGetTime();
     {
         cr_set(&cr, CU_TIME, time);
         cr_set(&cr, CU_SCALE, g_scale);
         cr_set(&cr, CU_CAMERA, camera_pos);
         cr_set(&cr, CU_RESOLUTION, resolution);
+        cr_set(&cr, CU_TIME_MOVED, cursor_time_moved);
         cr_draw(&cr, cur_pos, cur_size, v4fs(1.0));
-
+        ///////////////////////////////////////////////////////////////////////////////////
         ftr_use(&ftr, FTP_RAINBOW);
         ftr_set(&ftr, FTU_TIME, time);
         ftr_set(&ftr, FTU_SCALE, g_scale);
         ftr_set(&ftr, FTU_CAMERA, camera_pos);
         ftr_set(&ftr, FTU_RESOLUTION, resolution);
-        ftr_render_text(&ftr, editor.string.data, editor.string.length, v2fs(0), v4fs(1));
+        ftr_render_text(&ftr, editor.buffer.data, editor.buffer.length, v2fs(0), v4fs(1));
         ftr_draw(&ftr);
     }
 }
 
+static void initialize_glfw(GLFWwindow **window);
 static void initialize_glew(void);
-static void initialize_sdl(SDL_Window **window);
 static void initialize_freetype(FT_Face *face);
 
-int main(int argc, char *argv[])
+int main(void)
 {
-    assert(argc == 2);
-    char const *filename = argv[1];
-    FILE *fp = fopen(filename, "r");
-    if (fp != NULL) {
-        editor_load_file(&editor, fp);
-        fclose(fp);
-    }
-
-    SDL_Window *window;
-    initialize_sdl(&window);
-
-    initialize_glew();
-    
     FT_Face face = { 0 };
+    atexit(terminate);
+    initialize_glfw(&window);
+    initialize_glew();
     initialize_freetype(&face);
-
     ftr_init(&ftr, face);
     ftr_use(&ftr, FTP_RAINBOW);
     cr_init(&cr);
 
     size_t cur_last_pos = editor.cursor;
     float dt, now, last_frame = 0.0;
-    bool quit = false;
-    while (!quit) {
-        now = SDL_GetTicks() / 1000.0;
+    while (!glfwWindowShouldClose(window)) {
+        now = glfwGetTime();
         dt = now - last_frame;
         last_frame = now;
 
         if (editor.cursor != cur_last_pos) {
             cur_last_pos = editor.cursor;
-            cr_set(&cr, CU_TIME_MOVED, now);
-        }
-
-        SDL_Event event = { 0 };
-        while (SDL_PollEvent(&event)) {
-            switch (event.type) {
-                case SDL_WINDOWEVENT: {
-                    if (event.window.event == SDL_WINDOWEVENT_RESIZED) {
-                        int width, height;
-                        SDL_GetWindowSize(window, &width, &height);
-                        glViewport(0, 0, width, height);
-                        resolution = v2f(width, height);
-                    }
-                } break;
-
-                case SDL_QUIT: {
-                    quit = true;
-                } break;
-
-                case SDL_KEYDOWN: {
-                    switch (event.key.keysym.sym) {
-                        case SDLK_BACKSPACE: {
-                            editor_delete_backward_char(&editor);
-                        } break;
-
-                        case SDLK_DELETE: {
-                            editor_delete_char(&editor);
-                        } break;
-
-                        case SDLK_RETURN: {
-                            editor_newline(&editor);
-                        } break;
-
-                        case SDLK_l: {
-                            if (event.key.keysym.mod & KMOD_CTRL) {
-                                editor_forward_char(&editor);
-                            }
-                        } break;
-
-                        case SDLK_h: {
-                            if (event.key.keysym.mod & KMOD_CTRL) {
-                                editor_backward_char(&editor);
-                            }
-                        } break;
-
-                        case SDLK_j: {
-                            if (event.key.keysym.mod & KMOD_CTRL) {
-                                editor_next_line(&editor);
-                            }
-                        } break;
-
-                        case SDLK_k: {
-                            if (event.key.keysym.mod & KMOD_CTRL) {
-                                editor_previous_line(&editor);
-                            }
-                        } break;
-
-                        case SDLK_3: {
-                            if (event.key.keysym.mod & KMOD_CTRL) {
-                                editor_move_beginning_of_line(&editor);
-                            }
-                        } break;
-
-                        case SDLK_4: {
-                            if (event.key.keysym.mod & KMOD_CTRL) {
-                                editor_move_end_of_line(&editor);
-                            }
-                        } break;
-
-                        case SDLK_s: {
-                            if (event.key.keysym.mod & KMOD_CTRL) {
-                                FILE *fp = fopen(filename, "w");
-                                if (fp == NULL) {
-                                    panic("Could not open file %s: %s", filename,
-                                          strerror(errno));
-                                }
-                                editor_save_to_file(&editor, fp);
-                                fclose(fp);
-                            }
-                        } break;
-                    }
-                } break;
-
-                case SDL_TEXTINPUT: {
-                    editor_insert_text(&editor, event.text.text, strlen(event.text.text));
-                } break;
-            }
+            cursor_time_moved = now;
         }
 
         glClearColor(0.0, 0.0, 0.0, 1.0);
         glClear(GL_COLOR_BUFFER_BIT);
-
         render_scene(dt);
-
-        SDL_GL_SwapWindow(window);
+        glfwSwapBuffers(window);
+        glfwPollEvents();
     }
-
-    SDL_DestroyWindow(window);
-
     return 0;
 }
 
-static void initialize_sdl(SDL_Window **window)
+static void key_callback(GLFWwindow *window, int key, int scancode, int action, int mods)
 {
-    scc(SDL_Init(SDL_INIT_VIDEO));
-    *window = scp(SDL_CreateWindow(
-            "med", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, SCREEN_WIDTH,
-            SCREEN_HEIGHT, SDL_WINDOW_RESIZABLE | SDL_WINDOW_OPENGL));
+    (void) window;
+    (void) scancode;
 
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
-    int major, minor;
-    SDL_GL_GetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, &major);
-    SDL_GL_GetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, &minor);
-    printf("GL Version %d.%d\n", major, minor);
+    if (action != GLFW_PRESS && action != GLFW_REPEAT) {
+        return;
+    }
 
-    scp(SDL_GL_CreateContext(*window));
+    //////////////////////////////////////////////////////////////////////
+    if (editor.dired) {
+        switch (key) {
+            case GLFW_KEY_K:
+                editor_previous_line(&editor);
+                break;
+            case GLFW_KEY_J:
+                editor_next_line(&editor);
+                break;
+            case GLFW_KEY_ENTER:
+                editor_dired_find_file(&editor);
+                break;
+        }
+        return;
+    }
+    //////////////////////////////////////////////////////////////////////
+
+    if (mods & GLFW_MOD_CONTROL) {
+        switch (key) {
+            case GLFW_KEY_S: {
+                editor_save_buffer(&editor);
+            } break;
+
+            case GLFW_KEY_K:
+                editor_previous_line(&editor);
+                break;
+
+            case GLFW_KEY_J:
+                editor_next_line(&editor);
+                break;
+
+            case GLFW_KEY_H:
+                editor_backward_char(&editor);
+                break;
+
+            case GLFW_KEY_L:
+                editor_forward_char(&editor);
+                break;
+
+            case GLFW_KEY_SPACE:
+                editor_dired(&editor);
+                break;
+        }
+    }
+
+    switch (key) {
+        case GLFW_KEY_ENTER:
+            editor_newline(&editor);
+            break;
+        case GLFW_KEY_BACKSPACE:
+            editor_delete_backward_char(&editor);
+            break;
+        case GLFW_KEY_DELETE:
+            editor_delete_char(&editor);
+            break;
+    }
+}
+
+static void character_callback(GLFWwindow *window, unsigned int codepoint)
+{
+    //////////////////////////////////////////////////////////////////////
+    if (editor.dired) {
+        return;
+    }
+    //////////////////////////////////////////////////////////////////////
+    (void) window;
+    editor_insert_text(&editor, (char const *) &codepoint, 1);
+}
+
+static void framebuffer_size_callback(GLFWwindow *window, int width, int height)
+{
+    (void) window;
+    resolution = v2f(width, height);
+    glViewport(0, 0, width, height);
+}
+
+static void error_callback(int error, char const *description)
+{
+    (void) error;
+    panic("GLFW ERROR: %s\n", description);
+}
+
+static void initialize_glfw(GLFWwindow **window)
+{
+    glfwSetErrorCallback(error_callback);
+
+    glfwInit();
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
+    glfwWindowHint(GLFW_FOCUSED, GLFW_TRUE);
+    glfwWindowHint(GLFW_TRANSPARENT_FRAMEBUFFER, GLFW_TRUE);
+
+    *window = glfwCreateWindow(640, 480, "Hello World", NULL, NULL);
+    glfwMakeContextCurrent(*window);
+
+    glfwSetKeyCallback(*window, key_callback);
+    glfwSetFramebufferSizeCallback(*window, framebuffer_size_callback);
+    glfwSetCharCallback(*window, character_callback);
 }
 
 static void initialize_glew(void)

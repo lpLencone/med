@@ -8,6 +8,15 @@
 
 static void ftr_init_texture_atlas(ft_renderer_t *ftr, FT_Face face);
 
+void ftr_free(ft_renderer_t *ftr)
+{
+    renderer_free(&ftr->r);
+    glDeleteTextures(1, &ftr->atlas);
+    for (enum ft_program p = 0; p < FTP_COUNT; p++) {
+        glDeleteProgram(ftr->program[p]);
+    }
+}
+
 void ftr_init(ft_renderer_t *ftr, FT_Face face)
 {
     char const *vert_filenames[] = { "shaders/basic.vert", "shaders/project.glsl" };
@@ -95,8 +104,7 @@ float ftr_get_max_line_width(ft_renderer_t *ftr, char const *text, size_t text_s
 
 float ftr_char_width(ft_renderer_t *ftr, char c)
 {
-    ft_glyph_metrics_t metrics = ftr->metrics[(int) c];
-    return metrics.ax;
+    return ftr->metrics[(int) c].ax;
 }
 
 void ftr_use(ft_renderer_t *ftr, enum ft_program p)

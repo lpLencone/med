@@ -2,6 +2,12 @@
 #include "cursor_renderer.h"
 #include "lib.h"
 
+void cr_free(cursor_renderer_t *cr)
+{
+    renderer_free(&cr->r);
+    glDeleteProgram(cr->program);
+}
+
 void cr_init(cursor_renderer_t *cr)
 {
     char const *vert_filenames[] = { "shaders/cursor.vert", "shaders/project.glsl" };

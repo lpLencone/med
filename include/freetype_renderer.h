@@ -8,6 +8,8 @@
 #include "la.h"
 #include "renderer.h"
 
+#define METRICS_LENGTH 128
+
 enum ft_program {
     FTP_RAINBOW,
     FTP_COLOR,
@@ -34,21 +36,22 @@ typedef struct {
 
 typedef struct {
     renderer_t r;
-
-    GLuint program[FTP_COUNT];
-    enum ft_program current_program;
-
     GLuint atlas;
+
     FT_UInt atlas_w;
     FT_UInt atlas_h;
     FT_UInt atlas_low;
 
-    ft_glyph_metrics_t metrics[128];
+    GLuint program[FTP_COUNT];
+    enum ft_program current_program;
+
+    ft_glyph_metrics_t metrics[METRICS_LENGTH];
 
     // TODO: check whether all of the uniforms were set at least once before the first
     // call to ftr_draw; panic otherwise
 } ft_renderer_t;
 
+void ftr_free(ft_renderer_t *ftr);
 void ftr_init(ft_renderer_t *ftr, FT_Face face);
 
 void ftr_draw(ft_renderer_t *ftr);

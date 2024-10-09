@@ -1,10 +1,12 @@
 #include "str.h"
 
 #include <assert.h>
+#include <dirent.h>
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "lib.h"
 
@@ -96,6 +98,33 @@ void str_load_file(str_t *s, FILE *fp)
 void str_write_file(str_t const *s, FILE *fp)
 {
     fwrite(s->data, sizeof *s->data, s->length, fp);
+}
+
+static int entry_filter(const struct dirent *entry)
+{
+    bool ret = strcmp(entry->d_name, ".") != 0;
+    return ret;
+}
+
+bool str_readdir(str_t *s, char const *dirname, size_t *out_entry_count)
+{
+    struct dirent **entrylist = NULL;
+    int entry_count = scandir(dirname, &entrylist, entry_filter, alphasort);
+    if (entry_count == -1) {
+        eprintf("Could not scan directry: %s\n", strerror(errno));
+        return false;
+    }
+    for (int i = 0; i < entry_count; i++) {
+        str_push_cstr(s, entrylist[i]->d_name);
+        str_push_cstr(s, "\n");
+    }
+    *out_entry_count = entry_count;
+    return true;
+}
+
+bool str_isnull(str_t const *s)
+{
+    return s->data == NULL;
 }
 
 static void str_grow(str_t *s, size_t size)

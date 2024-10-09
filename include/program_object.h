@@ -1,6 +1,8 @@
 #ifndef PROGRAM_OBJECT_H_
 #define PROGRAM_OBJECT_H_
 
+#include <stdbool.h>
+
 #include <GL/glew.h>
 
 bool program_object_link(

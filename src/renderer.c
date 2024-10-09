@@ -1,5 +1,7 @@
 #include "renderer.h"
 
+#include <stdbool.h>
+
 #include "lib.h"
 
 enum vertex_attr {
@@ -7,6 +9,12 @@ enum vertex_attr {
     VERTEX_ATTR_POS,
     VERTEX_ATTR_COLOR,
 };
+
+void renderer_free(renderer_t *r)
+{
+    glDeleteVertexArrays(1, &r->vao);
+    glDeleteBuffers(1, &r->vbo);
+}
 
 void renderer_init(renderer_t *r)
 {

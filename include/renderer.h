@@ -20,6 +20,7 @@ typedef struct {
     size_t vertex_count;
 } renderer_t;
 
+void renderer_free(renderer_t *r);
 void renderer_init(renderer_t *r);
 
 void renderer_vertex(renderer_t *r, v2f_t p, v4f_t c, v2f_t uv);
