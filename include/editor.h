@@ -5,15 +5,18 @@
 
 #include "str.h"
 
-// It would be nice to insert text anywhere in a buffer regardless of cursor position.
-
 typedef struct {
     str_t buffer;
     size_t cursor;
+    
     str_t pathname;
 
     bool fsnav;
     size_t fsnav_entry_count;
+
+    bool mini;
+    str_t minibuffer;
+    size_t minicursor;
 } editor_t;
 
 void editor_free(editor_t *e);
@@ -32,6 +35,10 @@ void editor_insert_text(editor_t *e, char const *text, size_t text_size);
 void editor_delete_backward_char(editor_t *e);
 void editor_delete_char(editor_t *e);
 void editor_newline(editor_t *e);
+
+// Minibuffer
+
+void editor_minibuffer_send(editor_t *e);
 
 // File I/O
 void editor_load_file(editor_t *e);

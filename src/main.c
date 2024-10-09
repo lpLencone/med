@@ -19,7 +19,7 @@
 #define SCREEN_WIDTH  800
 #define SCREEN_HEIGHT 600
 #define MAX_SCALE     1
-#define MIN_SCALE     0.25
+#define MIN_SCALE     0.225
 #define PIXEL_SIZE    128
 
 // #define FONT_FREE_FILENAME "fonts/VictorMono-Regular.ttf"
@@ -129,6 +129,17 @@ void render_scene(float dt)
         ftr_set(&ftr, FTU_RESOLUTION, resolution);
         ftr_render_text(&ftr, editor.buffer.data, editor.buffer.length, v2fs(0), v4fs(1));
         ftr_draw(&ftr);
+
+        // Render minibuffer
+        if (!str_isnull(&editor.minibuffer)) {
+            ftr_set(&ftr, FTU_SCALE, (float) MIN_SCALE);
+            ftr_set(&ftr, FTU_CAMERA, v2fs(0));
+            ftr_render_text(
+                    &ftr, editor.minibuffer.data, editor.minibuffer.length,
+                    v2f_add(v2f_divf(v2f_neg(resolution), 2 * MIN_SCALE), v2fs(100)),
+                    v4fs(1));
+            ftr_draw(&ftr);
+        }
     }
 }
 
@@ -172,12 +183,21 @@ static void key_callback(GLFWwindow *window, int key, int scancode, int action, 
 {
     (void) window;
     (void) scancode;
-
     if (action != GLFW_PRESS && action != GLFW_REPEAT) {
         return;
     }
-
     //////////////////////////////////////////////////////////////////////
+
+    if (editor.mini) {
+        switch (key) {
+            case GLFW_KEY_ENTER:
+                editor_minibuffer_send(&editor);
+                break;
+        }
+        return;
+    }
+    //////////////////////////////////////////////////////////////////////
+
     if (editor.fsnav) {
         switch (key) {
             case GLFW_KEY_K:

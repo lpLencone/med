@@ -10,7 +10,7 @@ void cr_free(cursor_renderer_t *cr)
 
 void cr_init(cursor_renderer_t *cr)
 {
-    char const *vert_filenames[] = { "shaders/cursor.vert", "shaders/project.glsl" };
+    char const *vert_filenames[] = { "shaders/camera.vert", "shaders/project.glsl" };
     char const *frag_filename = "shaders/cursor.frag";
     program_object_link(&cr->program, vert_filenames, 2, &frag_filename, 1);
     renderer_init(&cr->r);

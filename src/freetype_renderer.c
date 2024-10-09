@@ -19,7 +19,7 @@ void ftr_free(ft_renderer_t *ftr)
 
 void ftr_init(ft_renderer_t *ftr, FT_Face face)
 {
-    char const *vert_filenames[] = { "shaders/basic.vert", "shaders/project.glsl" };
+    char const *vert_filenames[] = { "shaders/camera.vert", "shaders/project.glsl" };
     char const *rainbow_filename = "shaders/rainbow.frag";
     char const *image_filename = "shaders/basic_image.frag";
 

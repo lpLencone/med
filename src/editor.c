@@ -84,8 +84,10 @@ void editor_previous_line(editor_t *e)
 
 void editor_insert_text(editor_t *e, char const *text, size_t text_size)
 {
-    str_insert(&e->buffer, text, text_size, e->cursor);
-    e->cursor += text_size;
+    str_t *buffer = (e->mini) ? &e->minibuffer : &e->buffer;
+    size_t *cursor = (e->mini) ? &e->minicursor : &e->cursor;
+    str_insert(buffer, text, text_size, *cursor);
+    *cursor += text_size;
 }
 
 void editor_delete_char(editor_t *e)
@@ -108,6 +110,29 @@ void editor_newline(editor_t *e)
     editor_insert_text(e, "\n", 1);
 }
 
+// Minibuffer
+
+static void
+editor_minibuffer_start(editor_t *e, /*char const *prompt,*/ char const *placeholder)
+{
+    e->mini = true;
+    str_free(&e->minibuffer);
+    // str_push_cstr(&e->minibuffer.prompt, prompt);
+    str_push_cstr(&e->minibuffer, placeholder);
+    e->minicursor = e->minibuffer.length;
+}
+
+void editor_minibuffer_send(editor_t *e)
+{
+    assert(e->mini);
+    str_free(&e->pathname);
+    str_push_cstr(&e->pathname, e->minibuffer.data);
+    str_free(&e->minibuffer);
+    e->minicursor = 0;
+    e->mini = false;
+    editor_save_buffer(e);
+}
+
 // File I/O
 
 void editor_load_file(editor_t *e)
@@ -122,11 +147,13 @@ void editor_load_file(editor_t *e)
 void editor_save_buffer(editor_t *e)
 {
     if (str_isnull(&e->pathname)) {
-        char cwd[512];
+        char cwd[512] = {0};
         getcwd(cwd, 512);
-        str_push_cstr( &e->pathname, cwd);
-        str_push_cstr( &e->pathname, "/*scratch*");
+        cwd[strlen(cwd)] = '/';
+        editor_minibuffer_start(e, cwd);
+        return;
     }
+
     struct stat filestat;
     if (stat(e->pathname.data, &filestat) == -1 && ENOENT != errno) {
         panic("Could not stat %s: %s\n", e->pathname.data, strerror(errno));
@@ -138,7 +165,8 @@ void editor_save_buffer(editor_t *e)
         str_write_file(&e->buffer, fp);
         fclose(fp);
     } else {
-        panic("Not a regular file 0o%o: %s", (filestat.st_mode & S_IFMT), e->pathname.data);
+        panic("Not a regular file 0o%o: %s", (filestat.st_mode & S_IFMT),
+              e->pathname.data);
     }
 }
 
