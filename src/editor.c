@@ -142,7 +142,7 @@ void editor_save_buffer(editor_t *e)
     }
 }
 
-/// Dired functions
+/// fsnav functions
 
 static void pathname_parent(str_t *pathname)
 {
@@ -160,14 +160,14 @@ static void editor_read_pathname(editor_t *e)
     switch (filestat.st_mode & S_IFMT) {
         case S_IFDIR:
             str_free(&e->buffer);
-            if (!str_readdir(&e->buffer, e->pathname.data, &e->dired_entry_count)) {
+            if (!str_readdir(&e->buffer, e->pathname.data, &e->fsnav_entry_count)) {
                 panic("Could not read directory: %s\n", strerror(errno));
             }
-            e->dired = true;
+            e->fsnav = true;
             break;
         case S_IFREG:
             editor_load_file(e);
-            e->dired = false;
+            e->fsnav = false;
             break;
         default:
             panic("Unknown file type.");
@@ -175,7 +175,7 @@ static void editor_read_pathname(editor_t *e)
     e->cursor = 0;
 }
 
-void editor_dired(editor_t *e)
+void editor_fsnav(editor_t *e)
 {
     if (str_isnull(&e->pathname)) {
         char cwd[512] = { 0 };
@@ -190,7 +190,7 @@ void editor_dired(editor_t *e)
     editor_read_pathname(e);
 }
 
-void editor_dired_find_file(editor_t *e)
+void editor_fsnav_find_file(editor_t *e)
 {
     editor_move_beginning_of_line(e);
     size_t entry_length = strcspn(e->buffer.data + e->cursor, "\n");

@@ -178,7 +178,7 @@ static void key_callback(GLFWwindow *window, int key, int scancode, int action, 
     }
 
     //////////////////////////////////////////////////////////////////////
-    if (editor.dired) {
+    if (editor.fsnav) {
         switch (key) {
             case GLFW_KEY_K:
                 editor_previous_line(&editor);
@@ -187,7 +187,7 @@ static void key_callback(GLFWwindow *window, int key, int scancode, int action, 
                 editor_next_line(&editor);
                 break;
             case GLFW_KEY_ENTER:
-                editor_dired_find_file(&editor);
+                editor_fsnav_find_file(&editor);
                 break;
         }
         return;
@@ -217,7 +217,7 @@ static void key_callback(GLFWwindow *window, int key, int scancode, int action, 
                 break;
 
             case GLFW_KEY_SPACE:
-                editor_dired(&editor);
+                editor_fsnav(&editor);
                 break;
         }
     }
@@ -238,7 +238,7 @@ static void key_callback(GLFWwindow *window, int key, int scancode, int action, 
 static void character_callback(GLFWwindow *window, unsigned int codepoint)
 {
     //////////////////////////////////////////////////////////////////////
-    if (editor.dired) {
+    if (editor.fsnav) {
         return;
     }
     //////////////////////////////////////////////////////////////////////
