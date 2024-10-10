@@ -21,7 +21,6 @@ void str_insert(str_t *s, char const *data, size_t length, size_t index);
 void str_remove(str_t *s, size_t length, size_t index);
 
 size_t str_find_char(str_t const *s, char c, size_t index);
-
 size_t str_find_char_rev(str_t const *s, char c, size_t index);
 size_t str_count(str_t const *s, char c, size_t index);
 size_t str_count_rev(str_t const *s, char c, size_t index);

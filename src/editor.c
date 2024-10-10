@@ -82,8 +82,27 @@ void editor_previous_line(editor_t *e)
 
 // Editing
 
+static void editor_delete_selection(editor_t *e)
+{
+    assert(e->mark_set);
+    size_t start, end;
+    if (e->cursor > e->mark) {
+        start = e->mark;
+        end = e->cursor;
+    } else {
+        start = e->cursor;
+        end = e->mark;
+    }
+    str_remove(&e->buffer, end - start, start);
+    e->cursor = start;
+    e->mark_set = false;
+}
+
 void editor_insert_text(editor_t *e, char const *text, size_t text_size)
 {
+    if (e->mark_set) {
+        editor_delete_selection(e);
+    }
     str_t *buffer = (e->mini) ? &e->minibuffer : &e->buffer;
     size_t *cursor = (e->mini) ? &e->minicursor : &e->cursor;
     str_insert(buffer, text, text_size, *cursor);
@@ -92,6 +111,10 @@ void editor_insert_text(editor_t *e, char const *text, size_t text_size)
 
 void editor_delete_char(editor_t *e)
 {
+    if (e->mark_set) {
+        editor_delete_selection(e);
+        return;
+    }
     if (e->cursor < e->buffer.length) {
         str_remove(&e->buffer, 1, e->cursor);
     }
@@ -99,6 +122,10 @@ void editor_delete_char(editor_t *e)
 
 void editor_delete_backward_char(editor_t *e)
 {
+    if (e->mark_set) {
+        editor_delete_selection(e);
+        return;
+    }
     if (e->cursor > 0) {
         e->cursor--;
         editor_delete_char(e);
@@ -107,7 +134,24 @@ void editor_delete_backward_char(editor_t *e)
 
 void editor_newline(editor_t *e)
 {
+    if (e->mark_set) {
+        editor_delete_selection(e);
+    }
     editor_insert_text(e, "\n", 1);
+}
+
+void editor_set_mark(editor_t *e)
+{
+    // TODO: for now
+    assert(!e->fsnav);
+    e->mark_set = true;
+    e->mark = e->cursor;
+}
+
+void editor_reset(editor_t *e)
+{
+    e->mark_set = false;
+    e->mini = false;
 }
 
 // Minibuffer
@@ -135,19 +179,37 @@ void editor_minibuffer_send(editor_t *e)
 
 // File I/O
 
-void editor_load_file(editor_t *e)
+void editor_load_file(editor_t *e, char const *filename)
 {
-    FILE *fp = fopen(e->pathname.data, "r");
+    editor_reset(e);
+
+    // Load file contents
+    FILE *fp = fopen(filename, "r");
+    if (fp == NULL) {
+        panic("Could not open file \"%s\": %s", filename, strerror(errno));
+    }
     str_free(&e->buffer);
-    e->cursor = 0;
     str_load_file(&e->buffer, fp);
     fclose(fp);
+
+    str_free(&e->pathname);
+    if (*filename == '/') {
+        str_push_cstr(&e->pathname, filename);
+    } else {
+        char cwd[512] = { 0 };
+        getcwd(cwd, 512);
+        cwd[strlen(cwd)] = '/';
+        str_push_cstr(&e->pathname, cwd);
+        str_push_cstr(&e->pathname, filename);
+    }
+
+    e->cursor = 0;
 }
 
 void editor_save_buffer(editor_t *e)
 {
     if (str_isnull(&e->pathname)) {
-        char cwd[512] = {0};
+        char cwd[512] = { 0 };
         getcwd(cwd, 512);
         cwd[strlen(cwd)] = '/';
         editor_minibuffer_start(e, cwd);
@@ -180,6 +242,7 @@ static void pathname_parent(str_t *pathname)
 
 static void editor_read_pathname(editor_t *e)
 {
+    printf("[EDITOR] Trying to read \"%s\"\n", e->pathname.data);
     struct stat filestat;
     if (stat(e->pathname.data, &filestat) == -1) {
         panic("Could not stat %s: %s\n", e->pathname.data, strerror(errno));
@@ -194,7 +257,7 @@ static void editor_read_pathname(editor_t *e)
             e->fsnav = true;
             break;
         case S_IFREG:
-            editor_load_file(e);
+            editor_load_file(e, e->pathname.data);
             e->fsnav = false;
             break;
         default:
@@ -206,11 +269,7 @@ static void editor_read_pathname(editor_t *e)
 void editor_fsnav(editor_t *e)
 {
     if (str_isnull(&e->pathname)) {
-        char cwd[512] = { 0 };
-        if (getcwd(cwd, sizeof cwd) == NULL) {
-            panic("getcwd: %s\n", strerror(errno));
-        }
-        str_push_cstr(&e->pathname, cwd);
+        str_push_cstr(&e->pathname, ".");
     } else {
         pathname_parent(&e->pathname);
     }
@@ -253,6 +312,12 @@ size_t editor_get_cursor_col(editor_t const *e)
 {
     size_t index = str_find_char_rev(&e->buffer, '\n', e->cursor);
     return e->cursor - index - (index != 0);
+}
+
+void editor_get_cursor_line_boundaries(editor_t const *e, size_t *start, size_t *end)
+{
+    *start = str_find_char_rev(&e->buffer, '\n', e->cursor);
+    *end = str_find_char(&e->buffer, '\n', e->cursor);
 }
 
 char editor_get_char(editor_t const *e)

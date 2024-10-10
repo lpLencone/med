@@ -6,10 +6,14 @@
 #include "str.h"
 
 typedef struct {
+    // TODO: handle many buffers
     str_t buffer;
     size_t cursor;
-    
+
     str_t pathname;
+
+    bool mark_set;
+    size_t mark;
 
     bool fsnav;
     size_t fsnav_entry_count;
@@ -20,7 +24,6 @@ typedef struct {
 } editor_t;
 
 void editor_free(editor_t *e);
-void editor_new(editor_t *e);
 
 // Moving
 void editor_forward_char(editor_t *e);
@@ -35,17 +38,17 @@ void editor_insert_text(editor_t *e, char const *text, size_t text_size);
 void editor_delete_backward_char(editor_t *e);
 void editor_delete_char(editor_t *e);
 void editor_newline(editor_t *e);
+void editor_set_mark(editor_t *e);
+void editor_reset(editor_t *e);
 
 // Minibuffer
-
 void editor_minibuffer_send(editor_t *e);
 
 // File I/O
-void editor_load_file(editor_t *e);
+void editor_load_file(editor_t *e, char const *filename);
 void editor_save_buffer(editor_t *e);
 
 // fsnav functions
-
 void editor_fsnav(editor_t *e);
 void editor_fsnav_find_file(editor_t *e);
 

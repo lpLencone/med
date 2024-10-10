@@ -15,6 +15,7 @@
 #include "freetype_renderer.h"
 #include "la.h"
 #include "lib.h"
+#include "program_object.h"
 
 #define SCREEN_WIDTH  800
 #define SCREEN_HEIGHT 600
@@ -22,10 +23,10 @@
 #define MIN_SCALE     0.225
 #define PIXEL_SIZE    128
 
-// #define FONT_FREE_FILENAME "fonts/VictorMono-Regular.ttf"
+#define FONT_FREE_FILENAME "fonts/VictorMono-Regular.ttf"
 // #define FONT_FREE_FILENAME "fonts/Qdbettercomicsans-jEEeG.ttf"
 // #define FONT_FREE_FILENAME "fonts/ttf - Mx (mixed outline+bitmap)/Mx437_Mindset.ttf"
-#define FONT_FREE_FILENAME "fonts/ttf - Px (pixel outline)/Px437_IBM_VGA_8x16.ttf"
+// #define FONT_FREE_FILENAME "fonts/ttf - Px (pixel outline)/Px437_IBM_VGA_8x16.ttf"
 // #define FONT_FREE_FILENAME "fonts/ttf - Px (pixel outline)/Px437_IBM_EGA_8x8.ttf"
 // #define FONT_FREE_FILENAME "fonts/ttf - Px (pixel outline)/Px437_Compaq_Port3.ttf"
 // #define FONT_FREE_FILENAME "fonts/ttf - Px (pixel
@@ -43,6 +44,7 @@ void MessageCallback(
 static editor_t editor = { 0 };
 static ft_renderer_t ftr = { 0 };
 static cursor_renderer_t cr = { 0 };
+static renderer_t r = { 0 };
 static GLFWwindow *window = NULL;
 
 static void terminate(void)
@@ -58,6 +60,7 @@ v2f_t camera_pos = { 0 };
 v2f_t resolution = { SCREEN_WIDTH, SCREEN_HEIGHT };
 float cursor_time_moved = 0;
 float g_scale = MAX_SCALE;
+GLuint basic_program;
 
 void render_scene(float dt)
 {
@@ -140,6 +143,38 @@ void render_scene(float dt)
                     v4fs(1));
             ftr_draw(&ftr);
         }
+
+        // Render selection
+        if (editor.mark_set) {
+            program_object_use(basic_program);
+            program_object_uniform1f(basic_program, "u_scale", g_scale);
+            program_object_uniform2f(basic_program, "u_camera", v2(camera_pos));
+            program_object_uniform2f(basic_program, "u_resolution", v2(resolution));
+            size_t start_index = editor.mark;
+            size_t end_index = editor.cursor;
+            if (start_index > end_index) {
+                swap(start_index, end_index);
+            }
+
+            while (start_index < end_index) {
+                size_t end_line = str_find_char(&editor.buffer, '\n', start_index);
+                if (end_line > end_index) {
+                    end_line = end_index;
+                }
+                v2f_t start_pos = ftr_cursor_pos(&ftr, editor.buffer.data, start_index);
+                v2f_t end_pos = ftr_cursor_pos(&ftr, editor.buffer.data, end_line);
+                if (end_line != end_index) {
+                    end_pos.x += ftr_char_width(&ftr, ' ');
+                }
+                assert(start_pos.y == end_pos.y);
+                start_pos.y -= ftr.atlas_low;
+                renderer_solid_rect(
+                        &r, start_pos, v2f(end_pos.x - start_pos.x, ftr.atlas_h),
+                        v4f(1, 1, 1, 0.3));
+                renderer_draw(&r);
+                start_index = end_line + 1;
+            }
+        }
     }
 }
 
@@ -147,8 +182,12 @@ static void initialize_glfw(GLFWwindow **window);
 static void initialize_glew(void);
 static void initialize_freetype(FT_Face *face);
 
-int main(void)
+int main(int argc, char const *argv[])
 {
+    if (argc > 1) {
+        editor_load_file(&editor, argv[1]);
+    }
+
     FT_Face face = { 0 };
     atexit(terminate);
     initialize_glfw(&window);
@@ -157,6 +196,11 @@ int main(void)
     ftr_init(&ftr, face);
     ftr_use(&ftr, FTP_RAINBOW);
     cr_init(&cr);
+    renderer_init(&r);
+    program_object_link(
+            &basic_program,
+            (char const *[]) { "shaders/camera.vert", "shaders/project.glsl" }, 2,
+            (char const *[]) { "shaders/basic_color.frag" }, 1);
 
     size_t cur_last_pos = editor.cursor;
     float dt, now, last_frame = 0.0;
@@ -200,10 +244,10 @@ static void key_callback(GLFWwindow *window, int key, int scancode, int action, 
 
     if (editor.fsnav) {
         switch (key) {
-            case GLFW_KEY_K:
+            case GLFW_KEY_P:
                 editor_previous_line(&editor);
                 break;
-            case GLFW_KEY_J:
+            case GLFW_KEY_N:
                 editor_next_line(&editor);
                 break;
             case GLFW_KEY_ENTER:
@@ -220,24 +264,29 @@ static void key_callback(GLFWwindow *window, int key, int scancode, int action, 
                 editor_save_buffer(&editor);
             } break;
 
-            case GLFW_KEY_K:
+            case GLFW_KEY_P:
                 editor_previous_line(&editor);
                 break;
-
-            case GLFW_KEY_J:
+            case GLFW_KEY_N:
                 editor_next_line(&editor);
                 break;
-
-            case GLFW_KEY_H:
+            case GLFW_KEY_B:
                 editor_backward_char(&editor);
                 break;
-
-            case GLFW_KEY_L:
+            case GLFW_KEY_F:
                 editor_forward_char(&editor);
                 break;
 
-            case GLFW_KEY_SPACE:
+            case GLFW_KEY_D:
                 editor_fsnav(&editor);
+                break;
+
+            case GLFW_KEY_SPACE:
+                editor_set_mark(&editor);
+                break;
+
+            case GLFW_KEY_G:
+                editor_reset(&editor);
                 break;
         }
     }

@@ -23,6 +23,13 @@
     #define min(a, b) ((a) < (b) ? (a) : (b))
 #endif // min
 
+#define swap(a, b)       \
+    do {                 \
+        typeof(a) t = a; \
+        a = b;           \
+        b = t;           \
+    } while (0)
+
 #define defer(expr) \
     do {            \
         expr;       \
