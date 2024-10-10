@@ -21,7 +21,7 @@ void ftr_init(ft_renderer_t *ftr, FT_Face face)
 {
     char const *vert_filenames[] = { "shaders/camera.vert", "shaders/project.glsl" };
     char const *rainbow_filename = "shaders/rainbow.frag";
-    char const *image_filename = "shaders/basic_image.frag";
+    char const *image_filename = "shaders/image_red.frag";
 
     renderer_init(&ftr->r);
 
@@ -140,7 +140,7 @@ static void ftr_init_texture_atlas(ft_renderer_t *ftr, FT_Face face)
     FT_Error error;
     for (int i = 32; i < 128; i++) {
         if ((error = FT_Load_Char(face, i, FT_LOAD_RENDER)) != FT_Err_Ok) {
-            eprintf("Error loading char %c: %s\n", i, FT_Error_String(error));
+            debugf("Error loading char %c: %s\n", i, FT_Error_String(error));
             continue;
         }
         FT_GlyphSlot gs = face->glyph;
@@ -182,9 +182,9 @@ static void ftr_init_texture_atlas(ft_renderer_t *ftr, FT_Face face)
         }
 
         glTexSubImage2D(
-                GL_TEXTURE_2D, 0, x, 0, face->glyph->bitmap.width,
-                face->glyph->bitmap.rows, GL_RED, GL_UNSIGNED_BYTE,
-                face->glyph->bitmap.buffer);
+                GL_TEXTURE_2D, 0, x, 0, gs->bitmap.width,
+                gs->bitmap.rows, GL_RED, GL_UNSIGNED_BYTE,
+                gs->bitmap.buffer);
 
         ft_glyph_metrics_t *gm = ftr->metrics + i;
         gm->ax = gs->advance.x >> 6;

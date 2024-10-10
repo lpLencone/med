@@ -111,7 +111,7 @@ bool str_readdir(str_t *s, char const *dirname, size_t *out_entry_count)
     struct dirent **entrylist = NULL;
     int entry_count = scandir(dirname, &entrylist, entry_filter, alphasort);
     if (entry_count == -1) {
-        eprintf("Could not scan directry: %s\n", strerror(errno));
+        debugf("Could not scan directry: %s\n", strerror(errno));
         return false;
     }
     for (int i = 0; i < entry_count; i++) {

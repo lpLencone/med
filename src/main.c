@@ -37,8 +37,9 @@ void MessageCallback(
         GLchar const *message, void const *userParam)
 {
     (void) source, (void) id, (void) length, (void) userParam, (void) severity;
-    fprintf(stderr, "%s | message = %s\n",
-            type == GL_DEBUG_TYPE_ERROR ? "GL ERROR" : "GL INFO ", message);
+    if (type == GL_DEBUG_TYPE_ERROR) {
+        fprintf(stderr, "OpenGL Error :: %s\n", message);
+    }
 }
 
 static editor_t editor = { 0 };
@@ -67,7 +68,7 @@ void render_scene(float dt)
     float const VEL = 3;
     dt *= VEL;
 
-    float max_line_width = 0.0;
+    float max_line_width = 0;
     {
         size_t line_size = ftr.atlas_h * g_scale;
         size_t line_count = resolution.y / line_size;
@@ -150,29 +151,27 @@ void render_scene(float dt)
             program_object_uniform1f(basic_program, "u_scale", g_scale);
             program_object_uniform2f(basic_program, "u_camera", v2(camera_pos));
             program_object_uniform2f(basic_program, "u_resolution", v2(resolution));
-            size_t start_index = editor.mark;
-            size_t end_index = editor.cursor;
-            if (start_index > end_index) {
-                swap(start_index, end_index);
+            size_t mark_begin = editor.mark;
+            size_t mark_end = editor.cursor;
+            if (mark_begin > mark_end) {
+                swap(mark_begin, mark_end);
             }
 
-            while (start_index < end_index) {
-                size_t end_line = str_find_char(&editor.buffer, '\n', start_index);
-                if (end_line > end_index) {
-                    end_line = end_index;
+            while (mark_begin < mark_end) {
+                size_t end_line = str_find_char(&editor.buffer, '\n', mark_begin);
+                if (end_line > mark_end) {
+                    end_line = mark_end;
                 }
-                v2f_t start_pos = ftr_cursor_pos(&ftr, editor.buffer.data, start_index);
+                v2f_t start_pos = ftr_cursor_pos(&ftr, editor.buffer.data, mark_begin);
                 v2f_t end_pos = ftr_cursor_pos(&ftr, editor.buffer.data, end_line);
-                if (end_line != end_index) {
-                    end_pos.x += ftr_char_width(&ftr, ' ');
-                }
+                end_pos.x += ftr_char_width(&ftr, ' ') * (end_line != mark_end);
                 assert(start_pos.y == end_pos.y);
                 start_pos.y -= ftr.atlas_low;
                 renderer_solid_rect(
                         &r, start_pos, v2f(end_pos.x - start_pos.x, ftr.atlas_h),
                         v4f(1, 1, 1, 0.3));
                 renderer_draw(&r);
-                start_index = end_line + 1;
+                mark_begin = end_line + 1;
             }
         }
     }
@@ -193,14 +192,16 @@ int main(int argc, char const *argv[])
     initialize_glfw(&window);
     initialize_glew();
     initialize_freetype(&face);
-    ftr_init(&ftr, face);
-    ftr_use(&ftr, FTP_RAINBOW);
-    cr_init(&cr);
+
     renderer_init(&r);
     program_object_link(
             &basic_program,
             (char const *[]) { "shaders/camera.vert", "shaders/project.glsl" }, 2,
             (char const *[]) { "shaders/basic_color.frag" }, 1);
+
+    ftr_init(&ftr, face);
+    ftr_use(&ftr, FTP_RAINBOW);
+    cr_init(&cr);
 
     size_t cur_last_pos = editor.cursor;
     float dt, now, last_frame = 0.0;
@@ -361,7 +362,7 @@ static void initialize_glew(void)
         glEnable(GL_DEBUG_OUTPUT);
         glDebugMessageCallback(MessageCallback, 0);
     } else {
-        eprintf("Warning: GLEW_ARB_debug_output is not available.\n");
+        debugf("Warning: GLEW_ARB_debug_output is not available.\n");
     }
 
     if (!GLEW_ARB_draw_instanced) {

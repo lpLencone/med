@@ -69,7 +69,7 @@ static bool shader_compile(
     str_t shader_source = { 0 };
     for (size_t i = 0; i < filename_count; i++) {
         char const *filename = filenames[i];
-        printf("[Program Object :: shader_compile] Compiling file \"%s\"\n", filename);
+        // printf("[Program Object :: shader_compile] Compiling file \"%s\"\n", filename);
         FILE *fp = fopen(filename, "r");
         assert(fp != NULL);
         str_load_file(&shader_source, fp);
@@ -84,7 +84,7 @@ static bool shader_compile(
         glGetShaderiv(shaders[i], GL_COMPILE_STATUS, &status);
         if (status == GL_FALSE) {
             glGetShaderInfoLog(shaders[i], 512, NULL, info_log);
-            eprintf("Could not compile shader %s: %s\n", filename, info_log);
+            debugf("Could not compile shader %s: %s\n", filename, info_log);
 
             for (size_t j = 0; j < i; j++) {
                 glDeleteShader(shaders[j]);
@@ -109,7 +109,7 @@ static bool program_link(GLuint *program, GLuint *shaders, size_t shader_count)
     glGetProgramiv(*program, GL_LINK_STATUS, &status);
     if (!status) {
         glGetProgramInfoLog(*program, 512, NULL, info_log);
-        eprintf("Could not link program: %s\n", info_log);
+        debugf("Could not link program: %s\n", info_log);
         return false;
     }
 
