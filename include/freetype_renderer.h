@@ -56,7 +56,7 @@ void ftr_init(ft_renderer_t *ftr, FT_Face face);
 
 void ftr_draw(ft_renderer_t *ftr);
 
-void ftr_render_text(
+v2f_t ftr_render_text(
         ft_renderer_t *ftr, char const *text, size_t text_size, v2f_t pos, v4f_t color);
 
 v2f_t ftr_cursor_pos(ft_renderer_t *ftr, char const *text, size_t text_size);

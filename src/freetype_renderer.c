@@ -41,7 +41,7 @@ void ftr_draw(ft_renderer_t *ftr)
     renderer_draw(&ftr->r);
 }
 
-void ftr_render_text(
+v2f_t ftr_render_text(
         ft_renderer_t *ftr, char const *text, size_t text_size, v2f_t pos, v4f_t color)
 {
     for (size_t i = 0; i < text_size; i++) {
@@ -64,6 +64,7 @@ void ftr_render_text(
                 &ftr->r, v2f(x, y), v2f(w, -h), v2f(metrics.tx, 0.0),
                 v2f(metrics.bw / ftr->atlas_w, metrics.bh / ftr->atlas_h), color);
     }
+    return pos;
 }
 
 v2f_t ftr_cursor_pos(ft_renderer_t *ftr, char const *text, size_t text_size)

@@ -14,6 +14,7 @@
 #include "editor.h"
 #include "freetype_renderer.h"
 #include "la.h"
+#include "lexer.h"
 #include "lib.h"
 #include "program_object.h"
 
@@ -131,8 +132,33 @@ void render_scene(float dt)
         ftr_set(&ftr, FTU_SCALE, g_scale);
         ftr_set(&ftr, FTU_CAMERA, camera_pos);
         ftr_set(&ftr, FTU_RESOLUTION, resolution);
-        ftr_render_text(&ftr, editor.buffer.data, editor.buffer.length, v2fs(0), v4fs(1));
-        ftr_draw(&ftr);
+
+        lexer_token_t tok = { 0 };
+        size_t cursor = 0;
+        v2f_t pos = { 0 };
+        while ((tok = lexer_lex(
+                        editor.buffer.data + cursor, editor.buffer.length - cursor))
+                       .kind != LEXER_TOKEN_EOF) {
+            if (tok.kind == LEXER_TOKEN_STRING) {
+                ftr_use(&ftr, FTP_RAINBOW);
+                ftr_set(&ftr, FTU_TIME, time);
+                ftr_set(&ftr, FTU_SCALE, g_scale);
+                ftr_set(&ftr, FTU_CAMERA, camera_pos);
+                ftr_set(&ftr, FTU_RESOLUTION, resolution);
+            } else {
+                ftr_use(&ftr, FTP_COLOR);
+                ftr_set(&ftr, FTU_TIME, time);
+                ftr_set(&ftr, FTU_SCALE, g_scale);
+                ftr_set(&ftr, FTU_CAMERA, camera_pos);
+                ftr_set(&ftr, FTU_RESOLUTION, resolution);
+            }
+            pos = ftr_render_text(
+                    &ftr, editor.buffer.data + cursor, tok.end - tok.begin, pos, v4fs(1));
+            cursor += tok.end - tok.begin;
+            ftr_draw(&ftr);
+        }
+        // ftr_render_text(&ftr, editor.buffer.data, editor.buffer.length, v2fs(0),
+        // v4fs(1));
 
         // Render minibuffer
         if (!str_isnull(&editor.minibuffer)) {
