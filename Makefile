@@ -1,5 +1,6 @@
-BIN		:= med
-SRC		:= $(shell find src -name "*.c")
+CC	:= gcc
+BIN	:= med
+SRC	:= $(shell find src -name "*.c")
 PKGS	:= glfw3 glew freetype2
 LIBS	:= `pkg-config --libs $(PKGS)` -lm
 CFLAGS	:= -Wall -Wextra -pedantic -ggdb `pkg-config --cflags $(PKGS)`
