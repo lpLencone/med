@@ -14,7 +14,6 @@
 #include "editor.h"
 #include "freetype_renderer.h"
 #include "la.h"
-#include "lexer.h"
 #include "lib.h"
 #include "program_object.h"
 
@@ -133,72 +132,48 @@ void render_scene(float dt)
         ftr_set(&ftr, FTU_CAMERA, camera_pos);
         ftr_set(&ftr, FTU_RESOLUTION, resolution);
 
-        lexer_token_t tok = { 0 };
-        size_t cursor = 0;
-        v2f_t pos = { 0 };
-        while ((tok = lexer_lex(
-                        editor.buffer.data + cursor, editor.buffer.length - cursor))
-                       .kind != LEXER_TOKEN_EOF) {
-            if (tok.kind == LEXER_TOKEN_STRING) {
-                ftr_use(&ftr, FTP_RAINBOW);
-                ftr_set(&ftr, FTU_TIME, time);
-                ftr_set(&ftr, FTU_SCALE, g_scale);
-                ftr_set(&ftr, FTU_CAMERA, camera_pos);
-                ftr_set(&ftr, FTU_RESOLUTION, resolution);
-            } else {
-                ftr_use(&ftr, FTP_COLOR);
-                ftr_set(&ftr, FTU_TIME, time);
-                ftr_set(&ftr, FTU_SCALE, g_scale);
-                ftr_set(&ftr, FTU_CAMERA, camera_pos);
-                ftr_set(&ftr, FTU_RESOLUTION, resolution);
-            }
-            pos = ftr_render_text(
-                    &ftr, editor.buffer.data + cursor, tok.end - tok.begin, pos, v4fs(1));
-            cursor += tok.end - tok.begin;
-            ftr_draw(&ftr);
-        }
-        // ftr_render_text(&ftr, editor.buffer.data, editor.buffer.length, v2fs(0),
-        // v4fs(1));
+        ftr_render_text(&ftr, editor.buffer.data, editor.buffer.length, v2fs(0), v4fs(1));
+        ftr_draw(&ftr);
+    }
 
-        // Render minibuffer
-        if (!str_isnull(&editor.minibuffer)) {
-            ftr_set(&ftr, FTU_SCALE, (float) MIN_SCALE);
-            ftr_set(&ftr, FTU_CAMERA, v2fs(0));
-            ftr_render_text(
-                    &ftr, editor.minibuffer.data, editor.minibuffer.length,
-                    v2f_add(v2f_divf(v2f_neg(resolution), 2 * MIN_SCALE), v2fs(100)),
-                    v4fs(1));
-            ftr_draw(&ftr);
+    // Render minibuffer
+    if (!str_isnull(&editor.minibuffer)) {
+        ftr_set(&ftr, FTU_SCALE, (float) MIN_SCALE);
+        ftr_set(&ftr, FTU_CAMERA, v2fs(0));
+        ftr_render_text(
+                &ftr, editor.minibuffer.data, editor.minibuffer.length,
+                v2f_add(v2f_divf(v2f_neg(resolution), 2 * MIN_SCALE), v2fs(100)),
+                v4fs(1));
+        ftr_draw(&ftr);
+    }
+
+    // Render selection
+    if (editor.mark_set) {
+        program_object_use(basic_program);
+        program_object_uniform1f(basic_program, "u_scale", g_scale);
+        program_object_uniform2f(basic_program, "u_camera", v2(camera_pos));
+        program_object_uniform2f(basic_program, "u_resolution", v2(resolution));
+        size_t mark_begin = editor.mark;
+        size_t mark_end = editor.cursor;
+        if (mark_begin > mark_end) {
+            swap(mark_begin, mark_end);
         }
 
-        // Render selection
-        if (editor.mark_set) {
-            program_object_use(basic_program);
-            program_object_uniform1f(basic_program, "u_scale", g_scale);
-            program_object_uniform2f(basic_program, "u_camera", v2(camera_pos));
-            program_object_uniform2f(basic_program, "u_resolution", v2(resolution));
-            size_t mark_begin = editor.mark;
-            size_t mark_end = editor.cursor;
-            if (mark_begin > mark_end) {
-                swap(mark_begin, mark_end);
+        while (mark_begin < mark_end) {
+            size_t end_line = str_find_char(&editor.buffer, '\n', mark_begin);
+            if (end_line > mark_end) {
+                end_line = mark_end;
             }
-
-            while (mark_begin < mark_end) {
-                size_t end_line = str_find_char(&editor.buffer, '\n', mark_begin);
-                if (end_line > mark_end) {
-                    end_line = mark_end;
-                }
-                v2f_t start_pos = ftr_cursor_pos(&ftr, editor.buffer.data, mark_begin);
-                v2f_t end_pos = ftr_cursor_pos(&ftr, editor.buffer.data, end_line);
-                end_pos.x += ftr_char_width(&ftr, ' ') * (end_line != mark_end);
-                assert(start_pos.y == end_pos.y);
-                start_pos.y -= ftr.atlas_low;
-                renderer_solid_rect(
-                        &r, start_pos, v2f(end_pos.x - start_pos.x, ftr.atlas_h),
-                        v4f(1, 1, 1, 0.3));
-                renderer_draw(&r);
-                mark_begin = end_line + 1;
-            }
+            v2f_t start_pos = ftr_cursor_pos(&ftr, editor.buffer.data, mark_begin);
+            v2f_t end_pos = ftr_cursor_pos(&ftr, editor.buffer.data, end_line);
+            end_pos.x += ftr_char_width(&ftr, ' ') * (end_line != mark_end);
+            assert(start_pos.y == end_pos.y);
+            start_pos.y -= ftr.atlas_low;
+            renderer_solid_rect(
+                    &r, start_pos, v2f(end_pos.x - start_pos.x, ftr.atlas_h),
+                    v4f(1, 1, 1, 0.3));
+            renderer_draw(&r);
+            mark_begin = end_line + 1;
         }
     }
 }

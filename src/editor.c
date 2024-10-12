@@ -268,6 +268,8 @@ static void editor_read_pathname(editor_t *e)
 
 void editor_fsnav(editor_t *e)
 {
+    editor_reset(e);
+
     if (str_isnull(&e->pathname)) {
         str_push_cstr(&e->pathname, ".");
     } else {
