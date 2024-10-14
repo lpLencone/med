@@ -18,7 +18,16 @@ void main() {
     float alpha = smoothstep(0.5 - aaf, 0.5 + aaf, tx);
 
     vec2 frag_uv = gl_FragCoord.xy / u_resolution;
-    vec4 rainbow = vec4(hsl2rgb(vec3(frag_uv.x + frag_uv.y + u_time, 0.5, 0.5)), alpha);
+
+    vec4 rainbow = vec4(
+        hsl2rgb(vec3(frag_uv.x + frag_uv.y + u_time, tx, tx)), 
+        alpha
+    );
+
+    rainbow += vec4(
+        hsl2rgb(vec3(frag_uv.x + frag_uv.y + u_time, 1-tx, 1-tx)), 
+        tx
+    );
 
     gl_FragColor = p_color * rainbow;
 }
