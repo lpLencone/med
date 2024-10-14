@@ -3,6 +3,8 @@
 
 #include "renderer.h"
 
+#include <stdbool.h>
+
 enum cursor_uniform {
     CU_TIME,
     CU_TIME_MOVED,
@@ -18,7 +20,7 @@ typedef struct {
 } cursor_renderer_t;
 
 void cr_free(cursor_renderer_t *cr);
-void cr_init(cursor_renderer_t *cr);
+bool cr_init(cursor_renderer_t *cr);
 
 void cr_draw(cursor_renderer_t *cr, v2f_t cur_pos, v2f_t cur_size, v4f_t color);
 

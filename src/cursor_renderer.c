@@ -1,6 +1,6 @@
-#include "program_object.h"
 #include "cursor_renderer.h"
 #include "lib.h"
+#include "program_object.h"
 
 void cr_free(cursor_renderer_t *cr)
 {
@@ -8,12 +8,15 @@ void cr_free(cursor_renderer_t *cr)
     glDeleteProgram(cr->program);
 }
 
-void cr_init(cursor_renderer_t *cr)
+bool cr_init(cursor_renderer_t *cr)
 {
-    char const *vert_filenames[] = { "shaders/camera.vert", "shaders/project.glsl" };
+    char const *vert_filename = "shaders/camera.vert";
     char const *frag_filename = "shaders/cursor.frag";
-    program_object_link(&cr->program, vert_filenames, 2, &frag_filename, 1);
+    if (!program_object_link(&cr->program, &vert_filename, 1, &frag_filename, 1)) {
+        return false;
+    }
     renderer_init(&cr->r);
+    return true;
 }
 
 void cr_draw(cursor_renderer_t *cr, v2f_t cur_pos, v2f_t cur_size, v4f_t color)

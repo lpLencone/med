@@ -177,7 +177,6 @@ void render_scene(float dt)
         }
     }
 }
-
 static void initialize_glfw(GLFWwindow **window);
 static void initialize_glew(void);
 static void initialize_freetype(FT_Face *face);
@@ -195,14 +194,16 @@ int main(int argc, char const *argv[])
     initialize_freetype(&face);
 
     renderer_init(&r);
-    program_object_link(
-            &basic_program,
-            (char const *[]) { "shaders/camera.vert", "shaders/project.glsl" }, 2,
-            (char const *[]) { "shaders/basic_color.frag" }, 1);
+    if (!program_object_link(
+                &basic_program, (char const *[]) { "shaders/camera.vert" }, 1,
+                (char const *[]) { "shaders/basic_color.frag" }, 1)) {
+        return 1;
+    }
 
-    ftr_init(&ftr, face);
+    if (!cr_init(&cr) || !ftr_init(&ftr, face)) {
+        return 1;
+    }
     ftr_use(&ftr, FTP_RAINBOW);
-    cr_init(&cr);
 
     size_t cur_last_pos = editor.cursor;
     float dt, now, last_frame = 0.0;

@@ -1,6 +1,8 @@
 #ifndef FREETYPE_RENDERER_H_
 #define FREETYPE_RENDERER_H_
 
+#include <stdbool.h>
+
 #include <GL/glew.h>
 #include <freetype2/ft2build.h>
 #include FT_FREETYPE_H
@@ -52,7 +54,7 @@ typedef struct {
 } ft_renderer_t;
 
 void ftr_free(ft_renderer_t *ftr);
-void ftr_init(ft_renderer_t *ftr, FT_Face face);
+bool ftr_init(ft_renderer_t *ftr, FT_Face face);
 
 void ftr_draw(ft_renderer_t *ftr);
 

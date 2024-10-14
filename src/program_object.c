@@ -69,7 +69,7 @@ static bool shader_compile(
     str_t shader_source = { 0 };
     for (size_t i = 0; i < filename_count; i++) {
         char const *filename = filenames[i];
-        // printf("[Program Object :: shader_compile] Compiling file \"%s\"\n", filename);
+        printf("[Program Object :: shader_compile] Compiling file \"%s\"\n", filename);
         FILE *fp = fopen(filename, "r");
         assert(fp != NULL);
         str_load_file(&shader_source, fp);

@@ -17,20 +17,24 @@ void ftr_free(ft_renderer_t *ftr)
     }
 }
 
-void ftr_init(ft_renderer_t *ftr, FT_Face face)
+bool ftr_init(ft_renderer_t *ftr, FT_Face face)
 {
-    char const *vert_filenames[] = { "shaders/camera.vert", "shaders/project.glsl" };
+    char const *vert_filename = "shaders/camera.vert";
     char const *rainbow_filename = "shaders/rainbow.frag";
     char const *image_filename = "shaders/image_red.frag";
 
     renderer_init(&ftr->r);
 
-    program_object_link(
-            &ftr->program[FTP_RAINBOW], vert_filenames, 2, &rainbow_filename, 1);
-    program_object_link(&ftr->program[FTP_COLOR], vert_filenames, 2, &image_filename, 1);
+    if (!program_object_link(
+                &ftr->program[FTP_RAINBOW], &vert_filename, 1, &rainbow_filename, 1) ||
+        !program_object_link(
+                &ftr->program[FTP_COLOR], &vert_filename, 1, &image_filename, 1)) {
+        return false;
+    }
 
     ftr_init_texture_atlas(ftr, face);
     ftr->current_program = -1;
+    return true;
 }
 
 void ftr_draw(ft_renderer_t *ftr)
@@ -139,8 +143,9 @@ static void ftr_init_texture_atlas(ft_renderer_t *ftr, FT_Face face)
     ftr->atlas_low = 0;
 
     FT_Error error;
+    FT_Int32 load_flags = FT_LOAD_RENDER | FT_LOAD_TARGET_(FT_RENDER_MODE_SDF);
     for (int i = 32; i < 128; i++) {
-        if ((error = FT_Load_Char(face, i, FT_LOAD_RENDER)) != FT_Err_Ok) {
+        if ((error = FT_Load_Char(face, i, load_flags)) != FT_Err_Ok) {
             debugf("Error loading char %c: %s\n", i, FT_Error_String(error));
             continue;
         }
@@ -174,7 +179,7 @@ static void ftr_init_texture_atlas(ft_renderer_t *ftr, FT_Face face)
 
     int x = 0;
     for (int i = 32; i < 128; i++) {
-        if ((error = FT_Load_Char(face, i, FT_LOAD_RENDER)) != FT_Err_Ok) {
+        if ((error = FT_Load_Char(face, i, load_flags)) != FT_Err_Ok) {
             panic("Error loading char %c: %s\n", i, FT_Error_String(error));
         }
         FT_GlyphSlot gs = face->glyph;
@@ -183,9 +188,8 @@ static void ftr_init_texture_atlas(ft_renderer_t *ftr, FT_Face face)
         }
 
         glTexSubImage2D(
-                GL_TEXTURE_2D, 0, x, 0, gs->bitmap.width,
-                gs->bitmap.rows, GL_RED, GL_UNSIGNED_BYTE,
-                gs->bitmap.buffer);
+                GL_TEXTURE_2D, 0, x, 0, gs->bitmap.width, gs->bitmap.rows, GL_RED,
+                GL_UNSIGNED_BYTE, gs->bitmap.buffer);
 
         ft_glyph_metrics_t *gm = ftr->metrics + i;
         gm->ax = gs->advance.x >> 6;
