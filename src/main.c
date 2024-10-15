@@ -80,8 +80,8 @@ void render_scene(float dt)
         size_t start = editor_nth_char_index(&editor, '\n', line_start);
         size_t end = editor_nth_char_index(&editor, '\n', line_end + 1);
         /////////////////////////////////////////////////////////////////////////////////
-        max_line_width =
-                ftr_get_max_line_width(&ftr, editor.buffer.data + start, end - start);
+        max_line_width = ftr_get_max_line_width(
+                &ftr, editor.text_buffer.data + start, end - start);
         float g_scale_target =
                 max(MIN_SCALE, min(MAX_SCALE, 0.6 * resolution.x / max_line_width));
         float g_scale_vel = g_scale_target - g_scale;
@@ -90,7 +90,7 @@ void render_scene(float dt)
 
     v2f_t cur_pos = { 0 }, cur_size = { 0 };
     {
-        cur_pos = ftr_cursor_pos(&ftr, editor.buffer.data, editor.cursor);
+        cur_pos = ftr_cursor_pos(&ftr, editor.text_buffer.data, editor.text_cursor);
         char c = editor_get_char(&editor);
         float cur_width = ftr_char_width(&ftr, (c != '\0' && c != '\n') ? c : ' ');
         cur_size = v2f(cur_width, ftr.atlas_h);
@@ -132,18 +132,23 @@ void render_scene(float dt)
         ftr_set(&ftr, FTU_CAMERA, camera_pos);
         ftr_set(&ftr, FTU_RESOLUTION, resolution);
 
-        ftr_render_text(&ftr, editor.buffer.data, editor.buffer.length, v2fs(0), v4fs(1));
+        ftr_render_text(
+                &ftr, editor.text_buffer.data, editor.text_buffer.length, v2fs(0),
+                v4fs(1));
         ftr_draw(&ftr);
     }
 
     // Render minibuffer
-    if (!str_isnull(&editor.minibuffer)) {
+    if (editor.mini) {
         ftr_set(&ftr, FTU_SCALE, (float) MIN_SCALE);
         ftr_set(&ftr, FTU_CAMERA, v2fs(0));
-        ftr_render_text(
-                &ftr, editor.minibuffer.data, editor.minibuffer.length,
+        v2f_t pos = ftr_render_text(
+                &ftr, editor.miniprompt, strlen(editor.miniprompt),
                 v2f_add(v2f_divf(v2f_neg(resolution), 2 * MIN_SCALE), v2fs(100)),
                 v4fs(1));
+        ftr_render_text(
+                &ftr, editor.minibuffer.data, editor.minibuffer.length,
+                v2f(pos.x + 100, pos.y), v4fs(1));
         ftr_draw(&ftr);
     }
 
@@ -154,18 +159,18 @@ void render_scene(float dt)
         program_object_uniform2f(basic_program, "u_camera", v2(camera_pos));
         program_object_uniform2f(basic_program, "u_resolution", v2(resolution));
         size_t mark_begin = editor.mark;
-        size_t mark_end = editor.cursor;
+        size_t mark_end = editor.text_cursor;
         if (mark_begin > mark_end) {
             swap(mark_begin, mark_end);
         }
 
         while (mark_begin < mark_end) {
-            size_t end_line = str_find_char(&editor.buffer, '\n', mark_begin);
+            size_t end_line = str_find_char(&editor.text_buffer, '\n', mark_begin);
             if (end_line > mark_end) {
                 end_line = mark_end;
             }
-            v2f_t start_pos = ftr_cursor_pos(&ftr, editor.buffer.data, mark_begin);
-            v2f_t end_pos = ftr_cursor_pos(&ftr, editor.buffer.data, end_line);
+            v2f_t start_pos = ftr_cursor_pos(&ftr, editor.text_buffer.data, mark_begin);
+            v2f_t end_pos = ftr_cursor_pos(&ftr, editor.text_buffer.data, end_line);
             end_pos.x += ftr_char_width(&ftr, ' ') * (end_line != mark_end);
             assert(start_pos.y == end_pos.y);
             start_pos.y -= ftr.atlas_low;
@@ -205,15 +210,17 @@ int main(int argc, char const *argv[])
     }
     ftr_use(&ftr, FTP_RAINBOW);
 
-    size_t cur_last_pos = editor.cursor;
+    editor_new(&editor);
+
+    size_t cur_last_pos = editor.text_cursor;
     float dt, now, last_frame = 0.0;
     while (!glfwWindowShouldClose(window)) {
         now = glfwGetTime();
         dt = now - last_frame;
         last_frame = now;
 
-        if (editor.cursor != cur_last_pos) {
-            cur_last_pos = editor.cursor;
+        if (editor.text_cursor != cur_last_pos) {
+            cur_last_pos = editor.text_cursor;
             cursor_time_moved = now;
         }
 
@@ -233,16 +240,7 @@ static void key_callback(GLFWwindow *window, int key, int scancode, int action, 
     if (action != GLFW_PRESS && action != GLFW_REPEAT) {
         return;
     }
-    //////////////////////////////////////////////////////////////////////
 
-    if (editor.mini) {
-        switch (key) {
-            case GLFW_KEY_ENTER:
-                editor_minibuffer_send(&editor);
-                break;
-        }
-        return;
-    }
     //////////////////////////////////////////////////////////////////////
 
     if (editor.fsnav) {
@@ -263,9 +261,12 @@ static void key_callback(GLFWwindow *window, int key, int scancode, int action, 
 
     if (mods & GLFW_MOD_CONTROL) {
         switch (key) {
-            case GLFW_KEY_S: {
+            case GLFW_KEY_S:
                 editor_save_buffer(&editor);
-            } break;
+                break;
+            case GLFW_KEY_SLASH:
+                editor_isearch(&editor);
+                break;
 
             case GLFW_KEY_P:
                 editor_previous_line(&editor);
@@ -287,16 +288,16 @@ static void key_callback(GLFWwindow *window, int key, int scancode, int action, 
             case GLFW_KEY_SPACE:
                 editor_set_mark(&editor);
                 break;
-
-            case GLFW_KEY_G:
-                editor_reset(&editor);
-                break;
         }
     }
 
     switch (key) {
         case GLFW_KEY_ENTER:
-            editor_newline(&editor);
+            if (editor.mini) {
+                editor_minibuffer_terminate(&editor);
+            } else {
+                editor_newline(&editor);
+            }
             break;
         case GLFW_KEY_BACKSPACE:
             editor_delete_backward_char(&editor);
@@ -309,13 +310,14 @@ static void key_callback(GLFWwindow *window, int key, int scancode, int action, 
 
 static void character_callback(GLFWwindow *window, unsigned int codepoint)
 {
+    (void) window;
     //////////////////////////////////////////////////////////////////////
     if (editor.fsnav) {
         return;
     }
     //////////////////////////////////////////////////////////////////////
-    (void) window;
-    editor_insert_text(&editor, (char const *) &codepoint, 1);
+    assert(32 <= codepoint && codepoint < 127);
+    editor_self_insert(&editor, codepoint);
 }
 
 static void framebuffer_size_callback(GLFWwindow *window, int width, int height)
